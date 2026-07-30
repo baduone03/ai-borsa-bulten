@@ -1,0 +1,7 @@
+yfinance
+openai
+feedparser
+jinja2
+markupsafe
+requests
+python-dotenv
