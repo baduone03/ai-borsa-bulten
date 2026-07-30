@@ -1,0 +1,39 @@
+name: Gunluk Bulten
+
+on:
+  schedule:
+    # 06:00 UTC = 09:00 TR. ABD piyasasi kapandiktan sonraki ilk sabah.
+    - cron: "0 6 * * *"
+  workflow_dispatch: # Actions sekmesinden elle tetiklemek icin
+
+jobs:
+  bulletin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Bagimliliklari kur
+        run: pip install -r requirements.txt
+
+      - name: Bulteni uret ve Telegram'a gonder
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python main.py
+
+      - name: HTML raporu artifact olarak sakla
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bulten-${{ github.run_number }}
+          path: output/*.html
+          retention-days: 30
+          if-no-files-found: warn

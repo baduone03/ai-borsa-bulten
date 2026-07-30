@@ -63,7 +63,7 @@ def main():
 
     if not args.no_analysis and not os.environ.get(config.LLM_API_KEY_ENV):
         sys.exit(f"{config.LLM_API_KEY_ENV} bulunamadı. .env dosyasına ekle "
-                 f"(https://aistudio.google.com/apikey) veya --no-analysis kullan.")
+                 f"(ücretsiz: https://console.groq.com/keys) veya --no-analysis kullan.")
 
     try:
         print(f"[main] {len(companies)} hisse için veri çekiliyor...")

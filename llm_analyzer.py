@@ -1,8 +1,11 @@
-"""Analiz katmanı: tüm bülteni TEK Gemini çağrısıyla üretme.
+"""Analiz katmanı: tüm bülteni TEK LLM çağrısıyla üretme.
 
-Gemini free tier günlük kotası model başına ~20 istek. Tema başına ayrı çağrı
-(9 istek/gün + retry'lar) kotayı aşıyordu; bu yüzden 8 tema + genel
-değerlendirme tek istekte üretilir ve başlık işaretleriyle ayrıştırılır.
+Tema başına ayrı çağrı yerine 8 tema + genel değerlendirme tek istekte
+üretilir ve başlık işaretleriyle ayrıştırılır. Böylece ücretsiz kotalar
+zorlanmaz ve model bülteni bir bütün olarak kurgulayabilir.
+
+Sağlayıcı config.py'den gelir (OpenAI uyumlu endpoint); değiştirmek için
+LLM_MODEL / LLM_BASE_URL / LLM_API_KEY_ENV yeterli.
 """
 
 import os
@@ -23,7 +26,8 @@ MAX_OUTPUT_TOKENS = 8000
 FAILURE_TEXT = "Analiz yapılamadı"
 
 # Günlük kota tükendiğinde retry anlamsız — kota ancak ertesi gün sıfırlanır
-DAILY_QUOTA_MARKERS = ("PerDay", "per day", "generate_content_free_tier_requests")
+DAILY_QUOTA_MARKERS = ("PerDay", "per day", "per-day",
+                       "generate_content_free_tier_requests", "TPD", "RPD")
 
 SYSTEM_PROMPT = """Sen deneyimli bir finansal analistsin. AI ve teknoloji sektöründe
 uzmanlaşmış bir yatırım danışmanı olarak görev yapıyorsun.
@@ -175,7 +179,7 @@ def analyze_all(news_by_theme: dict, stock_data: list,
         text = _chat(SYSTEM_PROMPT, user_content, max_tokens=MAX_OUTPUT_TOKENS)
     except Exception as exc:
         print(f"[llm] bülten analizi başarısız: {exc}")
-        reason = ("Gemini günlük ücretsiz kotası (20 istek) tükendi."
+        reason = (f"{LLM_MODEL} günlük ücretsiz kotası tükendi."
                   if _is_daily_quota_error(exc) else f"LLM hatası: {exc}")
         return {
             "theme_analyses": {key: FAILURE_TEXT for key in themes_config},

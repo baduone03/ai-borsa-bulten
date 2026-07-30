@@ -56,10 +56,12 @@ THEMES = {
 
 SPECULATIVE_TICKERS = ["SMR"]
 
-# LLM sağlayıcı: Google Gemini free tier (OpenAI uyumlu endpoint, 0 maliyet)
-LLM_MODEL = "gemini-2.5-flash"
-LLM_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
-LLM_API_KEY_ENV = "GEMINI_API_KEY"
+# LLM sağlayıcı: Groq free tier (OpenAI uyumlu endpoint, 0 maliyet)
+# Gemini free tier'dan geçildi: günlük 20 istek kotası test/deneme sırasında tükeniyordu.
+# Groq'ta günlük limit çok daha yüksek. Sağlayıcı değişimi sadece bu 3 satır.
+LLM_MODEL = "llama-3.3-70b-versatile"
+LLM_BASE_URL = "https://api.groq.com/openai/v1"
+LLM_API_KEY_ENV = "GROQ_API_KEY"
 
 # Bildirim: Telegram bot (0 maliyet)
 TELEGRAM_BOT_TOKEN_ENV = "TELEGRAM_BOT_TOKEN"
