@@ -1,12 +1,14 @@
 """Hisse verisi katmanı: yfinance ile fiyat, 1ay/1yıl performans ve trend analizi."""
 
 import json
+from concurrent.futures import ThreadPoolExecutor
 
 import yfinance as yf
 
 from config import COMPANIES
 
 NA = "N/A"
+MAX_WORKERS = 8
 
 
 def _pct_change(current, past):
@@ -86,10 +88,15 @@ def get_stock_summary(ticker: str) -> dict:
 
 
 def get_all_stocks(companies: dict) -> list[dict]:
-    """COMPANIES sözlüğündeki tüm hisseleri çeker; ad ve kategori ekler, hataları loglar."""
+    """Tüm hisseleri paralel çeker; ad ve kategori ekler, hataları loglar. Sıra korunur."""
+    tickers = list(companies)
+    workers = min(MAX_WORKERS, len(tickers)) or 1
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        summaries = list(pool.map(get_stock_summary, tickers))
+
     results = []
-    for ticker, meta in companies.items():
-        summary = get_stock_summary(ticker)
+    for ticker, summary in zip(tickers, summaries):
+        meta = companies[ticker]
         summary["name"] = meta.get("name", ticker)
         summary["category"] = meta.get("category", NA)
         if summary["price"] == NA:

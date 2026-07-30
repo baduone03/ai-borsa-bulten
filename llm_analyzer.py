@@ -18,8 +18,12 @@ load_dotenv()
 
 MAX_RETRIES = 3
 RETRY_DELAY = 65  # free tier 429'ları dakikalık pencere — pencereyi aşacak kadar bekle
+REQUEST_TIMEOUT = 180  # zamanlanmış çalışmada asılı kalmayı önler
 MAX_OUTPUT_TOKENS = 8000
 FAILURE_TEXT = "Analiz yapılamadı"
+
+# Günlük kota tükendiğinde retry anlamsız — kota ancak ertesi gün sıfırlanır
+DAILY_QUOTA_MARKERS = ("PerDay", "per day", "generate_content_free_tier_requests")
 
 SYSTEM_PROMPT = """Sen deneyimli bir finansal analistsin. AI ve teknoloji sektöründe
 uzmanlaşmış bir yatırım danışmanı olarak görev yapıyorsun.
@@ -66,6 +70,12 @@ def _get_client():
     return OpenAI(api_key=api_key, base_url=LLM_BASE_URL)
 
 
+def _is_daily_quota_error(exc) -> bool:
+    """Günlük kota tükenmesi mi (retry fayda etmez) yoksa geçici hata mı ayırt eder."""
+    text = str(exc)
+    return "429" in text and any(marker in text for marker in DAILY_QUOTA_MARKERS)
+
+
 def _chat(system_prompt, user_content, max_tokens):
     """LLM chat çağrısı; 3 kez retry, başarısızlıkta exception fırlatır."""
     client = _get_client()
@@ -80,11 +90,15 @@ def _chat(system_prompt, user_content, max_tokens):
                 ],
                 max_tokens=max_tokens,
                 temperature=0.3,
+                timeout=REQUEST_TIMEOUT,
             )
             return response.choices[0].message.content.strip()
         except Exception as exc:
             last_exc = exc
             print(f"[llm] deneme {attempt}/{MAX_RETRIES} başarısız: {exc}")
+            if _is_daily_quota_error(exc):
+                print("[llm] Günlük kota tükenmiş — retry atlanıyor, kota ertesi gün sıfırlanır.")
+                break
             if attempt < MAX_RETRIES:
                 time.sleep(RETRY_DELAY)
     raise last_exc

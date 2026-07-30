@@ -2,6 +2,7 @@
 
 import calendar
 import re
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
 import feedparser
@@ -11,6 +12,7 @@ from config import RSS_FEEDS, THEMES, COMPANIES
 
 DATE_FMT = "%Y-%m-%d %H:%M"
 MAX_PER_CATEGORY = 10
+MAX_WORKERS = 8
 
 
 def _now_utc():
@@ -22,39 +24,48 @@ def _struct_to_dt(struct):
     return datetime.fromtimestamp(calendar.timegm(struct), tz=timezone.utc)
 
 
-def fetch_rss_news(feed_urls: list, hours: int = 24) -> list[dict]:
-    """RSS feed'lerini çeker, son {hours} saati filtreler, dedupe eder, yeniden eskiye sıralar."""
-    cutoff = _now_utc() - timedelta(hours=hours)
-    seen_titles = set()
-    items = []
-
-    for url in feed_urls:
+def _fetch_single_feed(url: str, cutoff) -> list[dict]:
+    """Tek RSS feed'ini çeker ve cutoff'tan yeni girdileri döndürür."""
+    try:
         feed = feedparser.parse(url)
-        source = feed.feed.get("title", "RSS")
-        for entry in feed.entries:
-            struct = entry.get("published_parsed")
-            if not struct:
-                continue
-            published = _struct_to_dt(struct)
-            if published < cutoff:
-                continue
+    except Exception as exc:
+        print(f"[news_fetcher] RSS alınamadı ({url}): {exc}")
+        return []
 
-            title = entry.get("title", "").strip()
-            key = title.lower()
-            if not title or key in seen_titles:
-                continue
-            seen_titles.add(key)
+    source = feed.feed.get("title", "RSS")
+    items = []
+    for entry in feed.entries:
+        struct = entry.get("published_parsed")
+        if not struct:
+            continue
+        published = _struct_to_dt(struct)
+        if published < cutoff:
+            continue
 
-            summary = re.sub(r"<[^>]+>", "", entry.get("summary", ""))[:300]
-            items.append({
-                "title": title,
-                "source": source,
-                "published": published.strftime(DATE_FMT),
-                "_dt": published,
-                "link": entry.get("link", ""),
-                "summary": summary.strip(),
-            })
+        title = entry.get("title", "").strip()
+        if not title:
+            continue
 
+        summary = re.sub(r"<[^>]+>", "", entry.get("summary", ""))[:300]
+        items.append({
+            "title": title,
+            "source": source,
+            "published": published.strftime(DATE_FMT),
+            "_dt": published,
+            "link": entry.get("link", ""),
+            "summary": summary.strip(),
+        })
+    return items
+
+
+def fetch_rss_news(feed_urls: list, hours: int = 24) -> list[dict]:
+    """RSS feed'lerini paralel çeker, son {hours} saati filtreler, dedupe eder, yeniden eskiye sıralar."""
+    cutoff = _now_utc() - timedelta(hours=hours)
+    workers = min(MAX_WORKERS, len(feed_urls)) or 1
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        per_feed = pool.map(lambda url: _fetch_single_feed(url, cutoff), feed_urls)
+
+    items = _dedupe([item for feed_items in per_feed for item in feed_items])
     items.sort(key=lambda x: x["_dt"], reverse=True)
     return items
 
@@ -83,34 +94,39 @@ def _yf_entry_fields(entry):
     return title, link, published_dt
 
 
-def fetch_yfinance_news(tickers: list) -> list[dict]:
-    """Her ticker için yfinance haberlerini çeker, son 24 saati filtreler, related_ticker ekler."""
-    cutoff = _now_utc() - timedelta(hours=24)
+def _fetch_ticker_news(ticker: str, cutoff) -> list[dict]:
+    """Tek ticker için yfinance haberlerini çeker ve cutoff'tan yenilerini döndürür."""
+    try:
+        raw = yf.Ticker(ticker).news or []
+    except Exception as exc:
+        print(f"[news_fetcher] {ticker} yfinance haberi alınamadı: {exc}")
+        return []
+
     items = []
-
-    for ticker in tickers:
-        try:
-            raw = yf.Ticker(ticker).news or []
-        except Exception as exc:
-            print(f"[news_fetcher] {ticker} yfinance haberi alınamadı: {exc}")
+    for entry in raw:
+        title, link, published_dt = _yf_entry_fields(entry)
+        if not title or published_dt is None or published_dt < cutoff:
             continue
+        items.append({
+            "title": title.strip(),
+            "source": "Yahoo Finance",
+            "published": published_dt.strftime(DATE_FMT),
+            "_dt": published_dt,
+            "link": link,
+            "summary": "",
+            "related_ticker": ticker,
+        })
+    return items
 
-        for entry in raw:
-            title, link, published_dt = _yf_entry_fields(entry)
-            if not title or published_dt is None:
-                continue
-            if published_dt < cutoff:
-                continue
-            items.append({
-                "title": title.strip(),
-                "source": "Yahoo Finance",
-                "published": published_dt.strftime(DATE_FMT),
-                "_dt": published_dt,
-                "link": link,
-                "summary": "",
-                "related_ticker": ticker,
-            })
 
+def fetch_yfinance_news(tickers: list) -> list[dict]:
+    """Ticker'ların yfinance haberlerini paralel çeker, son 24 saati filtreler, related_ticker ekler."""
+    cutoff = _now_utc() - timedelta(hours=24)
+    workers = min(MAX_WORKERS, len(tickers)) or 1
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        per_ticker = pool.map(lambda t: _fetch_ticker_news(t, cutoff), tickers)
+
+    items = [item for ticker_items in per_ticker for item in ticker_items]
     items.sort(key=lambda x: x["_dt"], reverse=True)
     return items
 
