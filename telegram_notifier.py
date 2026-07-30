@@ -54,23 +54,29 @@ def _snippet(text: str, limit: int = THEME_SNIPPET_LEN) -> str:
 
 
 def build_summary_message(stock_data, theme_analyses, general,
-                          themes_config, report_date: str) -> str:
+                          themes_config, report_date: str,
+                          analysis_failed: bool = False, failure_reason: str = "") -> str:
     """Zengin, HTML formatlı Telegram özet mesajı üretir (tema başlıkları + kısa özet)."""
     parts = [f"📊 <b>AI Borsa Takip Bülteni</b> — {_escape_html(report_date)}"]
+
+    if analysis_failed:
+        parts.append(f"\n⚠️ <b>AI analizi üretilemedi</b>\n{_escape_html(failure_reason)}\n"
+                     "Aşağıdaki hisse verileri güncel; yorum bölümleri bu bültende yok.")
 
     movers = _format_movers(stock_data)
     parts.append(f"\n<b>📈 Öne Çıkan Hareketler (1 Ay)</b>\n{movers}")
 
-    if general:
-        parts.append(f"\n<b>🧠 Genel Değerlendirme</b>\n{_snippet(general, 600)}")
+    if not analysis_failed:
+        if general:
+            parts.append(f"\n<b>🧠 Genel Değerlendirme</b>\n{_snippet(general, 600)}")
 
-    theme_lines = ["\n<b>🗂 Tema Özetleri</b>"]
-    for key, meta in themes_config.items():
-        analysis = theme_analyses.get(key)
-        if not analysis:
-            continue
-        theme_lines.append(f"\n<b>{_escape_html(meta['title'])}</b>\n{_snippet(analysis)}")
-    parts.append("\n".join(theme_lines))
+        theme_lines = ["\n<b>🗂 Tema Özetleri</b>"]
+        for key, meta in themes_config.items():
+            analysis = theme_analyses.get(key)
+            if not analysis:
+                continue
+            theme_lines.append(f"\n<b>{_escape_html(meta['title'])}</b>\n{_snippet(analysis)}")
+        parts.append("\n".join(theme_lines))
 
     parts.append("\n📎 Tam rapor ekteki HTML dosyasında.")
     parts.append("⚠️ Yatırım tavsiyesi niteliği taşımaz.")
@@ -115,7 +121,8 @@ def send_error_alert(error_text: str) -> None:
         print(f"[telegram] Hata bildirimi de gönderilemedi: {exc}")
 
 
-def send_report(stock_data, theme_analyses, general, themes_config, report_path: str) -> bool:
+def send_report(stock_data, theme_analyses, general, themes_config, report_path: str,
+                analysis_failed: bool = False, failure_reason: str = "") -> bool:
     """Bülten özetini + HTML ekini Telegram'a gönderir. Hata durumunda False döner, exception fırlatmaz."""
     token, chat_id = _credentials()
     if not token or not chat_id:
@@ -127,7 +134,8 @@ def send_report(stock_data, theme_analyses, general, themes_config, report_path:
 
     try:
         message = build_summary_message(stock_data, theme_analyses, general,
-                                        themes_config, report_date)
+                                        themes_config, report_date,
+                                        analysis_failed, failure_reason)
         send_telegram_message(token, chat_id, message)
         send_telegram_document(token, chat_id, report_path,
                                caption="AI Borsa Takip Bülteni — tam rapor")

@@ -85,11 +85,14 @@ def main():
             print("[main] LLM analizi atlandı (--no-analysis).")
             theme_analyses = {}
             general = "LLM analizi bu çalıştırmada atlandı (--no-analysis)."
+            analysis_failed, failure_reason = False, ""
         else:
             print(f"[main] {len(themes)} tema {config.LLM_MODEL} ile tek çağrıda analiz ediliyor...")
             result = analyze_all(news_by_theme, stock_data, themes, companies)
             theme_analyses = result["theme_analyses"]
             general = result["general"]
+            analysis_failed = result["failed"]
+            failure_reason = result["reason"]
 
         print("[main] HTML rapor üretiliyor...")
         html = generate_report(stock_data, theme_analyses, general, companies, themes)
@@ -101,7 +104,8 @@ def main():
         raise
 
     print("[main] Telegram bildirimi gönderiliyor...")
-    send_report(stock_data, theme_analyses, general, themes, path)
+    send_report(stock_data, theme_analyses, general, themes, path,
+                analysis_failed, failure_reason)
 
 
 if __name__ == "__main__":

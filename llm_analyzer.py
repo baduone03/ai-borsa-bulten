@@ -175,9 +175,13 @@ def analyze_all(news_by_theme: dict, stock_data: list,
         text = _chat(SYSTEM_PROMPT, user_content, max_tokens=MAX_OUTPUT_TOKENS)
     except Exception as exc:
         print(f"[llm] bülten analizi başarısız: {exc}")
+        reason = ("Gemini günlük ücretsiz kotası (20 istek) tükendi."
+                  if _is_daily_quota_error(exc) else f"LLM hatası: {exc}")
         return {
             "theme_analyses": {key: FAILURE_TEXT for key in themes_config},
             "general": FAILURE_TEXT,
+            "failed": True,
+            "reason": reason,
         }
 
     theme_analyses, general = _parse_bulletin(text, set(themes_config))
@@ -188,7 +192,8 @@ def analyze_all(news_by_theme: dict, stock_data: list,
     if not general:
         print("[llm] uyarı: genel değerlendirme bölümü bulunamadı")
         general = FAILURE_TEXT
-    return {"theme_analyses": theme_analyses, "general": general}
+    return {"theme_analyses": theme_analyses, "general": general,
+            "failed": False, "reason": ""}
 
 
 if __name__ == "__main__":
