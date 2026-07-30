@@ -71,4 +71,7 @@ RSS_FEEDS = [
     "https://news.google.com/rss/search?q=nvidia+AMD+GPU&hl=en-US&gl=US&ceid=US:en",
     "https://news.google.com/rss/search?q=nuclear+energy+SMR&hl=en-US&gl=US&ceid=US:en",
     "https://news.google.com/rss/search?q=cloud+infrastructure+AWS+Azure&hl=en-US&gl=US&ceid=US:en",
+    # energy ve cooling temaları kaynaksız kalıyordu (günlük 0 haber), bu iki feed onları besliyor
+    "https://news.google.com/rss/search?q=data+center+power+grid+electricity+demand&hl=en-US&gl=US&ceid=US:en",
+    "https://news.google.com/rss/search?q=data+center+liquid+cooling&hl=en-US&gl=US&ceid=US:en",
 ]
