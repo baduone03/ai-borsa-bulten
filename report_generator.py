@@ -1,6 +1,7 @@
 """Sunum katmanı: Jinja2 ile koyu temalı, renk kodlu, rozetli HTML rapor üretme."""
 
 import os
+import re
 from datetime import datetime
 
 import markupsafe
@@ -138,8 +139,10 @@ footer { color: #6b7080; font-size: 12px; text-align: center; margin-top: 32px;
 
 
 def _nl2br(value):
-    escaped = markupsafe.escape(value)
-    return markupsafe.Markup(escaped.replace("\n", markupsafe.Markup("<br>")))
+    """Satır sonlarını <br>, **kalın** markdown'ını <strong> yapar (LLM markdown üretiyor)."""
+    escaped = str(markupsafe.escape(value))
+    escaped = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", escaped)
+    return markupsafe.Markup(escaped.replace("\n", "<br>"))
 
 
 def _num(value):

@@ -56,12 +56,21 @@ THEMES = {
 
 SPECULATIVE_TICKERS = ["SMR"]
 
-# LLM sağlayıcı: Groq free tier (OpenAI uyumlu endpoint, 0 maliyet)
-# Gemini free tier'dan geçildi: günlük 20 istek kotası test/deneme sırasında tükeniyordu.
-# Groq'ta günlük limit çok daha yüksek. Sağlayıcı değişimi sadece bu 3 satır.
-LLM_MODEL = "llama-3.3-70b-versatile"
-LLM_BASE_URL = "https://api.groq.com/openai/v1"
-LLM_API_KEY_ENV = "GROQ_API_KEY"
+# LLM sağlayıcıları: sırayla denenir, biri patlarsa (kota/hata) sonrakine düşülür.
+# Hepsi OpenAI uyumlu endpoint olduğu için tek istemci kodu yeter.
+# Anahtarı .env'de olmayan sağlayıcı sessizce atlanır — yani Gemini isteğe bağlı.
+LLM_PROVIDERS = [
+    {
+        "model": "llama-3.3-70b-versatile",
+        "base_url": "https://api.groq.com/openai/v1",
+        "key_env": "GROQ_API_KEY",
+    },
+    {
+        "model": "gemini-2.5-flash",
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
+        "key_env": "GEMINI_API_KEY",
+    },
+]
 
 # Bildirim: Telegram bot (0 maliyet)
 TELEGRAM_BOT_TOKEN_ENV = "TELEGRAM_BOT_TOKEN"

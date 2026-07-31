@@ -46,7 +46,8 @@ def _format_movers(stock_data: list) -> str:
 
 
 def _snippet(text: str, limit: int = THEME_SNIPPET_LEN) -> str:
-    text = " ".join(text.split())
+    # LLM markdown üretiyor; kırpma sırasında etiket açık kalmasın diye ** işaretlerini at
+    text = " ".join(text.replace("**", "").split())
     if len(text) <= limit:
         return _escape_html(text)
     cut = text[:limit].rsplit(" ", 1)[0]

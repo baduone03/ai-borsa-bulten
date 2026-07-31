@@ -16,7 +16,7 @@ sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 import config
 from stock_data import get_all_stocks
 from news_fetcher import fetch_all_news
-from llm_analyzer import analyze_all
+from llm_analyzer import analyze_all, available_providers
 from report_generator import generate_report, save_report
 from telegram_notifier import send_report, send_error_alert
 
@@ -61,8 +61,10 @@ def main():
     companies = filter_companies(args.ticker)
     themes = filter_themes(args.theme)
 
-    if not args.no_analysis and not os.environ.get(config.LLM_API_KEY_ENV):
-        sys.exit(f"{config.LLM_API_KEY_ENV} bulunamadı. .env dosyasına ekle "
+    providers = available_providers() if not args.no_analysis else []
+    if not args.no_analysis and not providers:
+        envs = ", ".join(p["key_env"] for p in config.LLM_PROVIDERS)
+        sys.exit(f"Hiçbir LLM anahtarı bulunamadı ({envs}). .env dosyasına en az birini ekle "
                  f"(ücretsiz: https://console.groq.com/keys) veya --no-analysis kullan.")
 
     try:
@@ -87,7 +89,8 @@ def main():
             general = "LLM analizi bu çalıştırmada atlandı (--no-analysis)."
             analysis_failed, failure_reason = False, ""
         else:
-            print(f"[main] {len(themes)} tema {config.LLM_MODEL} ile tek çağrıda analiz ediliyor...")
+            chain = " → ".join(p["model"] for p in providers)
+            print(f"[main] {len(themes)} tema tek çağrıda analiz ediliyor (sağlayıcı sırası: {chain})...")
             result = analyze_all(news_by_theme, stock_data, themes, companies)
             theme_analyses = result["theme_analyses"]
             general = result["general"]

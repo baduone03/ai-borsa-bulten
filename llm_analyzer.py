@@ -4,8 +4,8 @@ Tema başına ayrı çağrı yerine 8 tema + genel değerlendirme tek istekte
 üretilir ve başlık işaretleriyle ayrıştırılır. Böylece ücretsiz kotalar
 zorlanmaz ve model bülteni bir bütün olarak kurgulayabilir.
 
-Sağlayıcı config.py'den gelir (OpenAI uyumlu endpoint); değiştirmek için
-LLM_MODEL / LLM_BASE_URL / LLM_API_KEY_ENV yeterli.
+Sağlayıcılar config.LLM_PROVIDERS'tan gelir (hepsi OpenAI uyumlu endpoint).
+Sırayla denenir: biri kotasını doldurursa ya da hata verirse sonrakine düşülür.
 """
 
 import os
@@ -15,7 +15,7 @@ import time
 from dotenv import load_dotenv
 from openai import OpenAI
 
-from config import LLM_MODEL, LLM_BASE_URL, LLM_API_KEY_ENV
+from config import LLM_PROVIDERS
 
 load_dotenv()
 
@@ -66,12 +66,9 @@ ayrı tut; maksimum 200 kelimelik tek paragraf)
 Bu başlıklar dışında başlık, giriş veya kapanış metni ekleme."""
 
 
-def _get_client():
-    """LLM_API_KEY_ENV'deki anahtarla OpenAI uyumlu istemci kurar."""
-    api_key = os.environ.get(LLM_API_KEY_ENV)
-    if not api_key:
-        raise RuntimeError(f"{LLM_API_KEY_ENV} environment variable set edilmemiş")
-    return OpenAI(api_key=api_key, base_url=LLM_BASE_URL)
+def available_providers() -> list[dict]:
+    """Anahtarı .env'de tanımlı olan sağlayıcıları config sırasıyla döndürür."""
+    return [p for p in LLM_PROVIDERS if os.environ.get(p["key_env"])]
 
 
 def _is_daily_quota_error(exc) -> bool:
@@ -80,14 +77,16 @@ def _is_daily_quota_error(exc) -> bool:
     return "429" in text and any(marker in text for marker in DAILY_QUOTA_MARKERS)
 
 
-def _chat(system_prompt, user_content, max_tokens):
-    """LLM chat çağrısı; 3 kez retry, başarısızlıkta exception fırlatır."""
-    client = _get_client()
+def _chat_one_provider(provider, system_prompt, user_content, max_tokens):
+    """Tek sağlayıcıda 3 kez retry; hepsi başarısızsa son exception'ı fırlatır."""
+    client = OpenAI(api_key=os.environ[provider["key_env"]],
+                    base_url=provider["base_url"])
+    model = provider["model"]
     last_exc = None
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             response = client.chat.completions.create(
-                model=LLM_MODEL,
+                model=model,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_content},
@@ -99,12 +98,30 @@ def _chat(system_prompt, user_content, max_tokens):
             return response.choices[0].message.content.strip()
         except Exception as exc:
             last_exc = exc
-            print(f"[llm] deneme {attempt}/{MAX_RETRIES} başarısız: {exc}")
+            print(f"[llm] {model} deneme {attempt}/{MAX_RETRIES} başarısız: {exc}")
             if _is_daily_quota_error(exc):
-                print("[llm] Günlük kota tükenmiş — retry atlanıyor, kota ertesi gün sıfırlanır.")
+                print(f"[llm] {model} günlük kotası tükenmiş — retry atlanıyor.")
                 break
             if attempt < MAX_RETRIES:
                 time.sleep(RETRY_DELAY)
+    raise last_exc
+
+
+def _chat(system_prompt, user_content, max_tokens):
+    """Sağlayıcıları sırayla dener, ilk başarılı yanıtı (metin, model) döndürür."""
+    providers = available_providers()
+    if not providers:
+        envs = ", ".join(p["key_env"] for p in LLM_PROVIDERS)
+        raise RuntimeError(f"Hiçbir LLM anahtarı set edilmemiş (biri gerekli: {envs})")
+
+    last_exc = None
+    for provider in providers:
+        try:
+            text = _chat_one_provider(provider, system_prompt, user_content, max_tokens)
+            return text, provider["model"]
+        except Exception as exc:
+            last_exc = exc
+            print(f"[llm] {provider['model']} sağlayıcısı başarısız, sonrakine geçiliyor.")
     raise last_exc
 
 
@@ -176,10 +193,12 @@ def analyze_all(news_by_theme: dict, stock_data: list,
         news_by_theme, stock_data, themes_config, companies_config
     )
     try:
-        text = _chat(SYSTEM_PROMPT, user_content, max_tokens=MAX_OUTPUT_TOKENS)
+        text, model = _chat(SYSTEM_PROMPT, user_content, max_tokens=MAX_OUTPUT_TOKENS)
+        print(f"[llm] analiz {model} ile üretildi.")
     except Exception as exc:
         print(f"[llm] bülten analizi başarısız: {exc}")
-        reason = (f"{LLM_MODEL} günlük ücretsiz kotası tükendi."
+        tried = ", ".join(p["model"] for p in available_providers()) or "-"
+        reason = (f"Tüm sağlayıcıların ({tried}) günlük ücretsiz kotası tükendi."
                   if _is_daily_quota_error(exc) else f"LLM hatası: {exc}")
         return {
             "theme_analyses": {key: FAILURE_TEXT for key in themes_config},
@@ -211,6 +230,5 @@ Piyasa test modunda."""
     assert general == "Piyasa test modunda.", general
     print("parse testi PASS")
 
-    if not os.environ.get(LLM_API_KEY_ENV):
-        print(f"{LLM_API_KEY_ENV} set edilmemiş — canlı test atlanıyor.")
-        raise SystemExit(0)
+    active = available_providers()
+    print("aktif sağlayıcılar:", ", ".join(p["model"] for p in active) or "(yok)")

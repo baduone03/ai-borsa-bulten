@@ -16,6 +16,7 @@ cp .env.example .env
 | Değişken | Nereden alınır |
 |---|---|
 | `GROQ_API_KEY` | https://console.groq.com/keys (ücretsiz) |
+| `GEMINI_API_KEY` | https://aistudio.google.com/apikey — **isteğe bağlı yedek** |
 | `TELEGRAM_BOT_TOKEN` | Telegram'da [@BotFather](https://t.me/BotFather) → `/newbot` |
 | `TELEGRAM_CHAT_ID` | Telegram'da [@userinfobot](https://t.me/userinfobot) |
 
@@ -26,7 +27,7 @@ cp .env.example .env
 `.github/workflows/daily-bulletin.yml` her gün 06:00 UTC'de (09:00 TR) GitHub'ın sunucusunda çalışır — bilgisayarın kapalı olsa bile. Kurulum:
 
 1. Repo → **Settings → Secrets and variables → Actions → New repository secret**
-2. Üç secret ekle: `GROQ_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
+2. Secret ekle: `GROQ_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` (+ isteğe bağlı `GEMINI_API_KEY`)
 3. **Actions** sekmesinden `Gunluk Bulten` → `Run workflow` ile elle de tetiklenebilir
 
 Üretilen HTML, çalışma artifact'i olarak 30 gün saklanır.
@@ -60,17 +61,22 @@ Yapılandırma (`config.py`): 16 şirket, 8 tema, 5 RSS kaynağı.
 
 Tema başına ayrı çağrı ücretsiz kotaları hızla tüketiyordu (Gemini'de günlük 20 istek sınırına takıldık). Bülten tek istekte üretilip `### TEMA: x` / `### GENEL` başlıklarıyla ayrıştırılıyor. Ek fayda: model bülteni bir bütün olarak kurguluyor.
 
-## Sağlayıcı değiştirme
+## Sağlayıcı zinciri
 
-`config.py`'deki üç satır yeterli — kodun geri kalanı OpenAI uyumlu SDK kullandığı için değişmez:
+`config.LLM_PROVIDERS` sırayla denenir: bir sağlayıcı kotasını doldurur ya da hata verirse otomatik olarak sonrakine düşülür. Anahtarı `.env`'de olmayan sağlayıcı sessizce atlanır — yani Gemini tamamen isteğe bağlıdır.
 
 ```python
-LLM_MODEL = "llama-3.3-70b-versatile"
-LLM_BASE_URL = "https://api.groq.com/openai/v1"
-LLM_API_KEY_ENV = "GROQ_API_KEY"
+LLM_PROVIDERS = [
+    {"model": "llama-3.3-70b-versatile",
+     "base_url": "https://api.groq.com/openai/v1",
+     "key_env": "GROQ_API_KEY"},
+    {"model": "gemini-2.5-flash",
+     "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
+     "key_env": "GEMINI_API_KEY"},
+]
 ```
 
-Gemini'ye dönmek için: `gemini-2.5-flash` / `https://generativelanguage.googleapis.com/v1beta/openai/` / `GEMINI_API_KEY`.
+Yeni sağlayıcı eklemek = listeye OpenAI uyumlu bir endpoint eklemek. Kodun geri kalanı değişmez.
 
 ## Notlar
 
