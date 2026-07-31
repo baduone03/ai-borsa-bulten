@@ -22,7 +22,6 @@ load_dotenv()
 MAX_RETRIES = 3
 RETRY_DELAY = 65  # free tier 429'ları dakikalık pencere — pencereyi aşacak kadar bekle
 REQUEST_TIMEOUT = 180  # zamanlanmış çalışmada asılı kalmayı önler
-MAX_OUTPUT_TOKENS = 8000
 FAILURE_TEXT = "Analiz yapılamadı"
 
 # Günlük kota tükendiğinde retry anlamsız — kota ancak ertesi gün sıfırlanır
@@ -66,6 +65,10 @@ ayrı tut; maksimum 200 kelimelik tek paragraf)
 Bu başlıklar dışında başlık, giriş veya kapanış metni ekleme."""
 
 
+class TruncatedResponseError(RuntimeError):
+    """Yanıt token sınırında kesildi — bülten eksik olurdu."""
+
+
 def available_providers() -> list[dict]:
     """Anahtarı .env'de tanımlı olan sağlayıcıları config sırasıyla döndürür."""
     return [p for p in LLM_PROVIDERS if os.environ.get(p["key_env"])]
@@ -77,7 +80,7 @@ def _is_daily_quota_error(exc) -> bool:
     return "429" in text and any(marker in text for marker in DAILY_QUOTA_MARKERS)
 
 
-def _chat_one_provider(provider, system_prompt, user_content, max_tokens):
+def _chat_one_provider(provider, system_prompt, user_content):
     """Tek sağlayıcıda 3 kez retry; hepsi başarısızsa son exception'ı fırlatır."""
     client = OpenAI(api_key=os.environ[provider["key_env"]],
                     base_url=provider["base_url"])
@@ -91,11 +94,22 @@ def _chat_one_provider(provider, system_prompt, user_content, max_tokens):
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_content},
                 ],
-                max_tokens=max_tokens,
+                max_tokens=provider["max_tokens"],
                 temperature=0.3,
                 timeout=REQUEST_TIMEOUT,
             )
-            return response.choices[0].message.content.strip()
+            choice = response.choices[0]
+            # Token bütçesi dolduysa bülten yarım kalır — kabul etmek yerine
+            # sağlayıcıyı başarısız say ki zincir sonrakine düşsün
+            if choice.finish_reason == "length":
+                raise TruncatedResponseError(
+                    f"{model} yanıtı {provider['max_tokens']} token sınırında kesildi"
+                )
+            return choice.message.content.strip()
+        except TruncatedResponseError as exc:
+            # Aynı bütçeyle tekrar denemek aynı yerde keser — doğrudan sonraki sağlayıcıya
+            print(f"[llm] {exc}")
+            raise
         except Exception as exc:
             last_exc = exc
             print(f"[llm] {model} deneme {attempt}/{MAX_RETRIES} başarısız: {exc}")
@@ -107,7 +121,7 @@ def _chat_one_provider(provider, system_prompt, user_content, max_tokens):
     raise last_exc
 
 
-def _chat(system_prompt, user_content, max_tokens):
+def _chat(system_prompt, user_content):
     """Sağlayıcıları sırayla dener, ilk başarılı yanıtı (metin, model) döndürür."""
     providers = available_providers()
     if not providers:
@@ -117,7 +131,7 @@ def _chat(system_prompt, user_content, max_tokens):
     last_exc = None
     for provider in providers:
         try:
-            text = _chat_one_provider(provider, system_prompt, user_content, max_tokens)
+            text = _chat_one_provider(provider, system_prompt, user_content)
             return text, provider["model"]
         except Exception as exc:
             last_exc = exc
@@ -193,7 +207,7 @@ def analyze_all(news_by_theme: dict, stock_data: list,
         news_by_theme, stock_data, themes_config, companies_config
     )
     try:
-        text, model = _chat(SYSTEM_PROMPT, user_content, max_tokens=MAX_OUTPUT_TOKENS)
+        text, model = _chat(SYSTEM_PROMPT, user_content)
         print(f"[llm] analiz {model} ile üretildi.")
     except Exception as exc:
         print(f"[llm] bülten analizi başarısız: {exc}")

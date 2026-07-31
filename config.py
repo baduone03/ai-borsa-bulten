@@ -58,17 +58,23 @@ SPECULATIVE_TICKERS = ["SMR"]
 
 # LLM sağlayıcıları: sırayla denenir, biri patlarsa (kota/hata) sonrakine düşülür.
 # Hepsi OpenAI uyumlu endpoint olduğu için tek istemci kodu yeter.
-# Anahtarı .env'de olmayan sağlayıcı sessizce atlanır — yani Gemini isteğe bağlı.
+# Anahtarı .env'de olmayan sağlayıcı sessizce atlanır.
+# Sıra: Gemini analiz derinliği daha iyi ama günlük 20 istek kotası var;
+# kota dolunca Groq devralıyor (limiti çok daha yüksek).
 LLM_PROVIDERS = [
-    {
-        "model": "llama-3.3-70b-versatile",
-        "base_url": "https://api.groq.com/openai/v1",
-        "key_env": "GROQ_API_KEY",
-    },
     {
         "model": "gemini-2.5-flash",
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
         "key_env": "GEMINI_API_KEY",
+        # Düşünme modeli: reasoning token'ları da bu bütçeden harcanıyor,
+        # 8000'de bülten bitmeden kesiliyordu. Model tavanı 65535.
+        "max_tokens": 32000,
+    },
+    {
+        "model": "llama-3.3-70b-versatile",
+        "base_url": "https://api.groq.com/openai/v1",
+        "key_env": "GROQ_API_KEY",
+        "max_tokens": 8000,
     },
 ]
 
