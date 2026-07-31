@@ -2,7 +2,7 @@
 
 AI ve teknoloji sektöründeki gelişmeleri takip eden, günlük otomatik yatırım bülteni üreten Python sistemi. Hisse verisi + haber toplar, tek LLM çağrısıyla Türkçe analiz üretir, HTML rapor kaydeder ve Telegram'a gönderir.
 
-**Maliyet: $0** — yfinance, Google News RSS, Groq free tier, Telegram Bot API ve GitHub Actions'ın tamamı ücretsiz.
+**Maliyet: $0** — yfinance, Google News RSS, Gemini ve Groq free tier, Telegram Bot API ve GitHub Actions'ın tamamı ücretsiz.
 
 ## Kurulum
 
@@ -15,8 +15,8 @@ cp .env.example .env
 
 | Değişken | Nereden alınır |
 |---|---|
-| `GROQ_API_KEY` | https://console.groq.com/keys (ücretsiz) |
-| `GEMINI_API_KEY` | https://aistudio.google.com/apikey — **isteğe bağlı yedek** |
+| `GROQ_API_KEY` | https://console.groq.com/keys (ücretsiz) — Gemini kotası dolunca yedek |
+| `GEMINI_API_KEY` | https://aistudio.google.com/apikey (ücretsiz) — zincirde ilk sırada |
 | `TELEGRAM_BOT_TOKEN` | Telegram'da [@BotFather](https://t.me/BotFather) → `/newbot` |
 | `TELEGRAM_CHAT_ID` | Telegram'da [@userinfobot](https://t.me/userinfobot) |
 
@@ -27,7 +27,7 @@ cp .env.example .env
 `.github/workflows/daily-bulletin.yml` her gün 06:00 UTC'de (09:00 TR) GitHub'ın sunucusunda çalışır — bilgisayarın kapalı olsa bile. Kurulum:
 
 1. Repo → **Settings → Secrets and variables → Actions → New repository secret**
-2. Secret ekle: `GROQ_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` (+ isteğe bağlı `GEMINI_API_KEY`)
+2. Dört secret ekle: `GEMINI_API_KEY`, `GROQ_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
 3. **Actions** sekmesinden `Gunluk Bulten` → `Run workflow` ile elle de tetiklenebilir
 
 Üretilen HTML, çalışma artifact'i olarak 30 gün saklanır.
@@ -63,18 +63,18 @@ Tema başına ayrı çağrı ücretsiz kotaları hızla tüketiyordu (Gemini'de 
 
 ## Sağlayıcı zinciri
 
-`config.LLM_PROVIDERS` sırayla denenir: bir sağlayıcı kotasını doldurur ya da hata verirse otomatik olarak sonrakine düşülür. Anahtarı `.env`'de olmayan sağlayıcı sessizce atlanır — yani Gemini tamamen isteğe bağlıdır.
+`config.LLM_PROVIDERS` sırayla denenir. Bir sağlayıcı kotasını doldurur, hata verir **ya da yanıtı token sınırında kesilirse** otomatik olarak sonrakine düşülür. Anahtarı `.env`'de olmayan sağlayıcı sessizce atlanır.
 
 ```python
 LLM_PROVIDERS = [
-    {"model": "llama-3.3-70b-versatile",
-     "base_url": "https://api.groq.com/openai/v1",
-     "key_env": "GROQ_API_KEY"},
-    {"model": "gemini-2.5-flash",
-     "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
-     "key_env": "GEMINI_API_KEY"},
+    {"model": "gemini-2.5-flash", ..., "key_env": "GEMINI_API_KEY", "max_tokens": 32000},
+    {"model": "llama-3.3-70b-versatile", ..., "key_env": "GROQ_API_KEY", "max_tokens": 8000},
 ]
 ```
+
+Gemini analiz derinliği daha iyi ama günlük 20 istek kotası var; dolunca Groq devralır (limiti çok daha yüksek).
+
+`max_tokens` sağlayıcı başına: Gemini 2.5 Flash bir **düşünme modeli**, reasoning token'ları da bu bütçeden harcanır — 8000'de bülten bitmeden kesiliyordu.
 
 Yeni sağlayıcı eklemek = listeye OpenAI uyumlu bir endpoint eklemek. Kodun geri kalanı değişmez.
 
