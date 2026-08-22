@@ -6,6 +6,10 @@ on:
     - cron: "0 6 * * *"
   workflow_dispatch: # Actions sekmesinden elle tetiklemek icin
 
+# Repo public: is akisina yalnizca okuma yetkisi ver, GITHUB_TOKEN yazamasin
+permissions:
+  contents: read
+
 jobs:
   bulletin:
     runs-on: ubuntu-latest

@@ -88,6 +88,13 @@ def build_summary_message(stock_data, theme_analyses, general,
     return message
 
 
+def _redact(text, token: str) -> str:
+    """Bot token'ı istek URL'sinin içinde geçer; hata metinleri Actions loglarına
+    düştüğü için token'ı maskeler (repo public, loglar herkese açık)."""
+    text = str(text)
+    return text.replace(token, "<BOT_TOKEN>") if token else text
+
+
 def _credentials():
     token = os.environ.get(TELEGRAM_BOT_TOKEN_ENV)
     chat_id = os.environ.get(TELEGRAM_CHAT_ID_ENV)
@@ -119,7 +126,7 @@ def send_error_alert(error_text: str) -> None:
     try:
         send_telegram_message(token, chat_id, f"🚨 <b>AI Borsa Bülteni çalışması BAŞARISIZ</b>\n{_escape_html(error_text)}")
     except Exception as exc:
-        print(f"[telegram] Hata bildirimi de gönderilemedi: {exc}")
+        print(f"[telegram] Hata bildirimi de gönderilemedi: {_redact(exc, token)}")
 
 
 def send_report(stock_data, theme_analyses, general, themes_config, report_path: str,
@@ -143,7 +150,7 @@ def send_report(stock_data, theme_analyses, general, themes_config, report_path:
         print("[telegram] Bildirim gönderildi.")
         return True
     except Exception as exc:
-        print(f"[telegram] Bildirim gönderilemedi: {exc}")
+        print(f"[telegram] Bildirim gönderilemedi: {_redact(exc, token)}")
         return False
 
 
