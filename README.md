@@ -2,7 +2,7 @@
 
 AI ve teknoloji sektöründeki gelişmeleri takip eden, günlük otomatik yatırım bülteni üreten Python sistemi. Hisse verisi + haber toplar, tek LLM çağrısıyla Türkçe analiz üretir, HTML rapor kaydeder ve Telegram'a gönderir.
 
-**Maliyet: $0** — yfinance, Google News RSS, Gemini ve Groq free tier, Telegram Bot API ve GitHub Actions'ın tamamı ücretsiz.
+**Maliyet: $0** — yfinance, Google News RSS, Gemini/Groq/NVIDIA NIM free tier, Telegram Bot API ve GitHub Actions'ın tamamı ücretsiz.
 
 ## Kurulum
 
@@ -17,6 +17,7 @@ cp .env.example .env
 |---|---|
 | `GROQ_API_KEY` | https://console.groq.com/keys (ücretsiz) — Gemini kotası dolunca yedek |
 | `GEMINI_API_KEY` | https://aistudio.google.com/apikey (ücretsiz) — zincirde ilk sırada |
+| `NVIDIA_API_KEY` | https://build.nvidia.com (ücretsiz) — isteğe bağlı son emniyet halkası |
 | `TELEGRAM_BOT_TOKEN` | Telegram'da [@BotFather](https://t.me/BotFather) → `/newbot` |
 | `TELEGRAM_CHAT_ID` | Telegram'da [@userinfobot](https://t.me/userinfobot) |
 
@@ -27,7 +28,8 @@ cp .env.example .env
 `.github/workflows/daily-bulletin.yml` her gün 05:37 UTC'de (08:37 TR) GitHub'ın sunucusunda çalışır — bilgisayarın kapalı olsa bile. Kurulum:
 
 1. Repo → **Settings → Secrets and variables → Actions → New repository secret**
-2. Dört secret ekle: `GEMINI_API_KEY`, `GROQ_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
+2. Secret'ları ekle: `GEMINI_API_KEY`, `GROQ_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
+   (isteğe bağlı: `NVIDIA_API_KEY`)
 3. **Actions** sekmesinden `Gunluk Bulten` → `Run workflow` ile elle de tetiklenebilir
 
 Üretilen HTML, çalışma artifact'i olarak 30 gün saklanır.
@@ -69,10 +71,18 @@ Tema başına ayrı çağrı ücretsiz kotaları hızla tüketiyordu (Gemini'de 
 LLM_PROVIDERS = [
     {"model": "gemini-2.5-flash", ..., "key_env": "GEMINI_API_KEY", "max_tokens": 32000},
     {"model": "llama-3.3-70b-versatile", ..., "key_env": "GROQ_API_KEY", "max_tokens": 8000},
+    {"model": "minimaxai/minimax-m3",    ..., "key_env": "NVIDIA_API_KEY", "max_tokens": 16000},
 ]
 ```
 
 Gemini analiz derinliği daha iyi ama günlük 20 istek kotası var; dolunca Groq devralır (limiti çok daha yüksek).
+Üçüncü halka NVIDIA NIM üzerinden `minimax-m3`.
+
+NVIDIA kataloğundaki modeller ölçüldü: çoğu bu hesapta `404 Function not found` dönüyor veya
+yanıt vermiyor (`gemma-4-31b-it`, `deepseek-v4-pro`, `kimi-k3` → timeout). Servis edilenler
+arasında Türkçe kalitesi en iyi olan `minimax-m3` (~150 sn, 8/8 tema). Nemotron'lar da çalışıyor
+ama Türkçe'leri bozuk — `nemotron-3-super` İtalyanca sızdırıyor ("giustifiye"),
+`nemotron-3.5-lightning` "AI böbrek korkuları" gibi anlamsız çeviri üretiyor.
 
 `max_tokens` sağlayıcı başına: Gemini 2.5 Flash bir **düşünme modeli**, reasoning token'ları da bu bütçeden harcanır — 8000'de bülten bitmeden kesiliyordu.
 

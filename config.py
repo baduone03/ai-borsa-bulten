@@ -85,6 +85,19 @@ LLM_PROVIDERS = [
         "key_env": "GROQ_API_KEY",
         "max_tokens": 8000,
     },
+    # Son emniyet halkasi: NVIDIA NIM (OpenAI uyumlu).
+    # Katalogdaki modellerin cogu bu hesapta 404 donuyor ya da yanit vermiyor
+    # (gemma-4, deepseek-v4-pro, kimi-k3 test edildi: timeout). Servis edilenler
+    # arasinda Turkce'si acik ara en iyi olan minimax-m3: akici, sizintisiz.
+    # Nemotron'lar da calisiyor ama Turkce'leri bozuk (super: "giustifiye",
+    # "hisseninOvervalued"; lightning: "AI bobrek korkulari").
+    # ~150 sn suruyor, bu yuzden Gemini/Groq'un arkasinda.
+    {
+        "model": "minimaxai/minimax-m3",
+        "base_url": "https://integrate.api.nvidia.com/v1",
+        "key_env": "NVIDIA_API_KEY",
+        "max_tokens": 16000,
+    },
 ]
 
 # Bildirim: Telegram bot (0 maliyet)
