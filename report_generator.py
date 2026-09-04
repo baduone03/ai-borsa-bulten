@@ -60,6 +60,15 @@ h1 { font-size: 28px; margin: 0 0 4px; }
 .range-labels { display: flex; justify-content: space-between; font-size: 11px;
   color: #8b90a3; margin-top: 4px; }
 .trend-note { font-style: italic; font-size: 12px; color: #aeb2c4; margin-top: 8px; }
+.spark { margin: 10px 0 4px; }
+.spark svg { display: block; width: 100%; height: 40px; }
+.tech { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.tech-item { background: #23273a; border-radius: 6px; padding: 3px 8px; font-size: 11px;
+  color: #aeb2c4; }
+.tech-item b { color: #e6e8ef; font-weight: 600; }
+.tech-hot { background: #3a2430; color: #ff8fa0; }
+.tech-cold { background: #1e3040; color: #7fc4ff; }
+.tech-signals { font-size: 11px; color: #ffc078; margin-top: 6px; }
 .badges { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
 .badge { display: inline-block; padding: 3px 9px; border-radius: 999px;
   font-size: 11px; font-weight: 600; white-space: nowrap; }
@@ -118,6 +127,25 @@ footer { color: #6b7080; font-size: 12px; text-align: center; margin-top: 32px;
           <div class="range-labels"><span>{{ s.low_52w }}</span><span>{{ s.high_52w }}</span></div>
         </div>
         {% endif %}
+        {% if s.spark_path %}
+        <div class="spark">
+          <svg viewBox="0 0 100 40" preserveAspectRatio="none">
+            <polyline points="{{ s.spark_path }}" fill="none"
+                      stroke="{{ s.spark_color }}" stroke-width="1.5"
+                      vector-effect="non-scaling-stroke"/>
+          </svg>
+        </div>
+        {% endif %}
+        {% if s.tech_items %}
+        <div class="tech">
+          {% for t in s.tech_items %}
+          <span class="tech-item {{ t.cls }}"><b>{{ t.label }}</b> {{ t.value }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+        {% if s.tech_signals %}
+        <div class="tech-signals">{{ s.tech_signals | join(' · ') }}</div>
+        {% endif %}
         <div class="trend-note">{{ s.trend_note }}</div>
       </div>
       {% endfor %}
@@ -168,12 +196,64 @@ def _range_pct(price, low, high):
     return round(max(0, min(100, pct)), 1)
 
 
+SPARK_UP, SPARK_DOWN = "#00d26a", "#ff4757"
+
+
+def _spark(points):
+    """Kapanış listesini 100x40 viewBox'a normalize edilmiş polyline'a çevirir."""
+    if not points or len(points) < 2:
+        return "", SPARK_UP
+    low, high = min(points), max(points)
+    span = high - low
+    coords = []
+    for i, value in enumerate(points):
+        x = i / (len(points) - 1) * 100
+        # span 0 ise (tamamen yatay) çizgiyi ortaya koy
+        y = 20.0 if span == 0 else 38 - (value - low) / span * 36
+        coords.append(f"{x:.1f},{y:.1f}")
+    color = SPARK_UP if points[-1] >= points[0] else SPARK_DOWN
+    return " ".join(coords), color
+
+
+def _tech_items(ta):
+    """Teknik göstergeleri rapordaki rozetlere çevirir; aşırı değerleri renklendirir."""
+    if not ta:
+        return []
+    items = []
+    rsi = ta.get("rsi")
+    if rsi is not None:
+        cls = "tech-hot" if rsi >= 70 else "tech-cold" if rsi <= 30 else ""
+        items.append({"label": "RSI", "value": rsi, "cls": cls})
+    if ta.get("macd"):
+        hist = ta["macd"]["histogram"]
+        items.append({"label": "MACD", "value": f"{hist:+.2f}",
+                      "cls": "" if hist >= 0 else "tech-hot"})
+    for period in (50, 200):
+        val = ta.get(f"price_vs_sma{period}")
+        if val is not None:
+            items.append({"label": f"SMA{period}", "value": f"{val:+.1f}%",
+                          "cls": "" if val >= 0 else "tech-hot"})
+    ratio = ta.get("volume_ratio")
+    if ratio is not None and ratio >= 1.5:
+        items.append({"label": "Hacim", "value": f"{ratio:.1f}x", "cls": "tech-cold"})
+    atr = ta.get("atr_pct")
+    if atr is not None:
+        items.append({"label": "ATR", "value": f"{atr}%", "cls": ""})
+    return items
+
+
 def _enrich_stock(s):
     """Hisse dict'ini şablon için görsel alanlarla zenginleştirir (mutasyon yok)."""
     change_1m_str, cls_1m = _change_str(s.get("change_1m"))
     change_1y_str, cls_1y = _change_str(s.get("change_1y"))
+    ta = s.get("technical") or {}
+    spark_path, spark_color = _spark(s.get("spark"))
     return {
         **s,
+        "spark_path": spark_path,
+        "spark_color": spark_color,
+        "tech_items": _tech_items(ta),
+        "tech_signals": ta.get("signals", []),
         "price_str": f"${s['price']:.2f}" if _num(s.get("price")) else NA,
         "change_1m_str": change_1m_str,
         "change_1y_str": change_1y_str,

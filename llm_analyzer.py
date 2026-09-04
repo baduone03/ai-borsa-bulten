@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 
 from config import LLM_PROVIDERS
+from technical_analysis import format_for_prompt
 
 load_dotenv()
 
@@ -41,6 +42,22 @@ Her temadaki her gelişme için şu üç kısmı yaz:
    - 'Momentum güçlü, pozisyonu koru veya artır'
    - 'Düzeltme riski var, kâr realizasyonu düşün'
    - 'Belirsizlik yüksek, bekle-gör stratejisi uygula'
+
+TEKNİK ANALİZ:
+Her hisse için TEKNİK satırında gerçek göstergeler veriliyor:
+RSI14, MACD (çizgi/sinyal/histogram), fiyatın SMA20/50/200'e göre yüzde
+konumu, Bollinger %B, hacim/20 günlük ortalama oranı, ATR (% volatilite).
+Bunları bir teknik analist gibi yorumla:
+- RSI 70 üstü aşırı alım, 30 altı aşırı satım; ara değerlerde nötr de.
+- MACD histogramı pozitiften negatife dönüyorsa momentum zayıflıyor.
+- Fiyat SMA200'ün altındaysa uzun vadeli trend aşağı; üstündeyse yukarı.
+- Bollinger %B 1'in üstü/0'ın altı aşırı uzama, geri çekilme riski.
+- Hacim oranı 1.5x üstündeyse hareketin arkasında haber/kurumsal işlem var.
+- ATR yüksekse pozisyon boyutunu küçült uyarısı yap.
+Teknik tabloyla haber akışı çelişiyorsa bunu açıkça söyle — örneğin
+'haber olumlu ama RSI 78 ve fiyat üst bandın dışında, giriş için kötü nokta'.
+Gösterge verilmemişse (teknik veri yok) o hisse için teknik yorum yapma,
+uydurma.
 
 KURALLAR:
 - Eğer bir temada gerçekten önemli haber yoksa bunu tek cümleyle açıkça
@@ -154,7 +171,8 @@ def _format_stocks(stocks):
         lines.append(
             f"- {s.get('name', s.get('ticker'))} ({s.get('ticker')}): "
             f"fiyat {s.get('price')}, 1ay {s.get('change_1m')}%, "
-            f"1yıl {s.get('change_1y')}%, trend: {s.get('trend_note')}"
+            f"1yıl {s.get('change_1y')}%, trend: {s.get('trend_note')}\n"
+            f"  TEKNİK: {format_for_prompt(s.get('technical'))}"
         )
     return "\n".join(lines) if lines else "(İlgili hisse verisi yok.)"
 

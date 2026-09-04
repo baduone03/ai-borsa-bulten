@@ -5,10 +5,14 @@ from concurrent.futures import ThreadPoolExecutor
 
 import yfinance as yf
 
+import technical_analysis
 from config import COMPANIES
 
 NA = "N/A"
 MAX_WORKERS = 8
+# Rapordaki mini grafik icin: 6 aylik kapanislar bu kadar noktaya seyreltilir
+SPARK_POINTS = 60
+SPARK_WINDOW = 126  # ~6 ay islem gunu
 
 
 def _pct_change(current, past):
@@ -16,6 +20,15 @@ def _pct_change(current, past):
     if current is None or past is None or past == 0:
         return NA
     return round((current - past) / past * 100, 2)
+
+
+def _spark_points(closes) -> list:
+    """Rapordaki mini grafik icin son ~6 ayin kapanislarini seyrelterek dondurur."""
+    recent = closes.tail(SPARK_WINDOW)
+    if len(recent) < 2:
+        return []
+    step = max(1, len(recent) // SPARK_POINTS)
+    return [round(float(v), 2) for v in recent.iloc[::step]]
 
 
 def _trend(change_1m, change_1y):
@@ -48,6 +61,8 @@ def get_stock_summary(ticker: str) -> dict:
         "volume": NA,
         "trend_note": NA,
         "trend_signal": NA,
+        "technical": {},
+        "spark": [],
     }
 
     try:
@@ -84,6 +99,8 @@ def get_stock_summary(ticker: str) -> dict:
     summary["trend_note"], summary["trend_signal"] = _trend(
         summary["change_1m"], summary["change_1y"]
     )
+    summary["technical"] = technical_analysis.analyze(hist, summary["price"])
+    summary["spark"] = _spark_points(closes)
     return summary
 
 
