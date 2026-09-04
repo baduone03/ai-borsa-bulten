@@ -132,8 +132,13 @@ def fetch_yfinance_news(tickers: list) -> list[dict]:
 
 
 def _matches(text: str, terms) -> bool:
-    """Terimlerden herhangi biri metinde kelime sınırıyla geçiyor mu."""
-    return any(re.search(rf"\b{re.escape(term.lower())}\b", text) for term in terms)
+    """Terimlerden herhangi biri metinde kelime sınırıyla geçiyor mu.
+
+    Çoğul eki opsiyonel: düz \b eşleşmesi "data centers", "GPUs", "reactors"
+    gibi başlıkları kaçırıyordu (başlıklarda çoğul hali tekilden yaygın).
+    """
+    return any(re.search(rf"\b{re.escape(term.lower())}(?:e?s)?\b", text)
+               for term in terms)
 
 
 def _company_terms(ticker: str, meta: dict) -> list:
