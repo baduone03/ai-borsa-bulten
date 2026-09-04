@@ -24,7 +24,7 @@ cp .env.example .env
 
 ## Otomatik günlük çalıştırma
 
-`.github/workflows/daily-bulletin.yml` her gün 06:00 UTC'de (09:00 TR) GitHub'ın sunucusunda çalışır — bilgisayarın kapalı olsa bile. Kurulum:
+`.github/workflows/daily-bulletin.yml` her gün 05:37 UTC'de (08:37 TR) GitHub'ın sunucusunda çalışır — bilgisayarın kapalı olsa bile. Kurulum:
 
 1. Repo → **Settings → Secrets and variables → Actions → New repository secret**
 2. Dört secret ekle: `GEMINI_API_KEY`, `GROQ_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
@@ -49,7 +49,7 @@ py -3 main.py --no-news                        # haber toplamayı atla
 | Katman | Dosya | İş |
 |---|---|---|
 | Veri | `stock_data.py` | yfinance ile fiyat, 1ay/1yıl performans, trend sinyali |
-| Veri | `news_fetcher.py` | Google News RSS + yfinance news, keyword bazlı kategorize |
+| Veri | `news_fetcher.py` | Google News RSS + yfinance news, kelime sınırlı keyword + şirket adı ile kategorize |
 | Analiz | `llm_analyzer.py` | 8 tema + genel değerlendirme, **tek** LLM çağrısı |
 | Sunum | `report_generator.py` | Jinja2 ile koyu temalı, rozetli HTML |
 | Bildirim | `telegram_notifier.py` | Zengin özet mesajı + HTML dosya eki |

@@ -19,38 +19,47 @@ COMPANIES = {
     "TSM": {"name": "TSMC", "category": "mega-cap", "themes": ["gpu"]},
 }
 
+# Keyword'ler kelime sınırıyla (\b) eşleştirilir, substring olarak değil.
+# Bu yüzden "AI", "chip", "SMR" gibi kısa terimler güvenle kullanılabilir;
+# uzun tam-ifadeler ("energy consumption AI") pratikte hiçbir başlığa uymuyordu.
 THEMES = {
     "ai": {
         "title": "Yapay Zeka Gelişmeleri",
-        "keywords": ["artificial intelligence", "AI model", "LLM", "machine learning", "AI regulation"],
+        "keywords": ["AI", "artificial intelligence", "AI model", "LLM", "machine learning",
+                     "chatbot", "OpenAI", "Anthropic", "AI regulation"],
     },
     "data_center": {
         "title": "Veri Merkezi İnşaatı ve Kapasitesi",
-        "keywords": ["data center", "hyperscale", "colocation", "data center construction"],
+        "keywords": ["data center", "data centre", "hyperscale", "hyperscaler",
+                     "colocation", "rack"],
     },
     "energy": {
         "title": "Enerji Tüketimi ve Güç Altyapısı",
-        "keywords": ["power grid", "energy consumption AI", "behind the meter", "power infrastructure"],
+        "keywords": ["power grid", "electricity", "power demand", "energy demand",
+                     "megawatt", "gigawatt", "utility", "utilities", "power generation",
+                     "PPA", "behind the meter", "power infrastructure"],
     },
     "gpu": {
         "title": "GPU ve Özel AI Çipleri",
-        "keywords": ["GPU", "Nvidia", "AMD", "ASIC", "HBM", "AI chip"],
+        "keywords": ["GPU", "chip", "chips", "semiconductor", "ASIC", "HBM",
+                     "accelerator", "foundry", "wafer"],
     },
     "cooling": {
         "title": "Soğutma Teknolojileri",
-        "keywords": ["liquid cooling", "data center cooling", "immersion cooling"],
+        "keywords": ["cooling", "thermal", "immersion"],
     },
     "nuclear": {
         "title": "Nükleer ve Yenilenebilir Enerji",
-        "keywords": ["SMR", "nuclear energy AI", "PPA agreement", "renewable energy AI"],
+        "keywords": ["nuclear", "SMR", "reactor", "uranium", "renewable", "solar", "wind"],
     },
     "cloud": {
         "title": "Bulut Altyapı Yatırımları",
-        "keywords": ["AWS", "Azure", "Google Cloud", "cloud infrastructure", "capex"],
+        "keywords": ["cloud", "AWS", "Azure", "capex"],
     },
     "company_news": {
         "title": "Şirket Haberleri ve Yatırımcı Sunumları",
-        "keywords": ["earnings", "investor presentation", "guidance", "SEC filing"],
+        "keywords": ["earnings", "guidance", "revenue", "quarterly",
+                     "SEC filing", "investor presentation"],
     },
 }
 

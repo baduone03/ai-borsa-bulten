@@ -131,29 +131,85 @@ def fetch_yfinance_news(tickers: list) -> list[dict]:
     return items
 
 
-def categorize_news(news_list: list, themes: dict) -> dict:
-    """Haberleri title+summary keyword'lerine göre temalara dağıtır; uymayanlar 'other'."""
+def _matches(text: str, terms) -> bool:
+    """Terimlerden herhangi biri metinde kelime sınırıyla geçiyor mu."""
+    return any(re.search(rf"\b{re.escape(term.lower())}\b", text) for term in terms)
+
+
+def _company_terms(ticker: str, meta: dict) -> list:
+    """Bir şirketi metinde aramak için ticker + ad varyantları ('Alphabet/Google' -> ikisi de)."""
+    return [ticker] + [part.strip() for part in meta.get("name", "").split("/") if part.strip()]
+
+
+def _mentioned_tickers(text: str, companies: dict) -> list:
+    return [t for t, meta in companies.items() if _matches(text, _company_terms(t, meta))]
+
+
+def categorize_news(news_list: list, themes: dict, companies: dict = None) -> dict:
+    """Haberleri temalara dağıtır: önce keyword, hiçbiri tutmazsa adı geçen
+    portföy şirketinin temaları. İkisi de tutmazsa 'other'.
+
+    Şirket eşleşmesi yalnızca fallback olarak kullanılıyor: her habere uygulanınca
+    Nvidia gibi her yerde geçen isimler tüm temaları aynı haberlerle dolduruyor.
+    """
+    companies = companies if companies is not None else COMPANIES
     buckets = {theme: [] for theme in themes}
     buckets["other"] = []
 
     for news in news_list:
         text = f"{news.get('title', '')} {news.get('summary', '')}".lower()
-        matched = False
-        for theme, meta in themes.items():
-            if any(kw.lower() in text for kw in meta["keywords"]):
-                buckets[theme].append(news)
-                matched = True
+        matched = [t for t, meta in themes.items() if _matches(text, meta["keywords"])]
+        if not matched:
+            for ticker in _mentioned_tickers(text, companies):
+                matched += [t for t in companies[ticker].get("themes", []) if t in themes]
+            matched = list(dict.fromkeys(matched))
+
+        for theme in matched:
+            buckets[theme].append(news)
         if not matched:
             buckets["other"].append(news)
 
     return buckets
 
 
+def _rank_for_theme(news_list: list, theme: str, companies: dict, keywords: list) -> list:
+    """Tema kotasına girecek haberleri seçmeden önce ilgiye göre sıralar.
+
+    Sıra: (1) temanın konusuna VE hissesine değen haber, (2) sadece konuya değen,
+    (3) yalnızca şirket adı üzerinden bu temaya düşmüş haber. Son kademe olmasa
+    Tesla'nın robotaksi haberi 'enerji' temasının başına geçiyor.
+    Kademe içinde yeniden eskiye.
+    """
+    theme_tickers = {t: meta for t, meta in companies.items()
+                     if theme in meta.get("themes", [])}
+    # company_news gibi hiçbir şirketin listelemediği temalarda ilgi sıralaması
+    # tamamen devre dışı kalıyordu; orada tüm portföyü ilgili say.
+    theme_tickers = theme_tickers or companies
+
+    def relevance(news):
+        text = f"{news.get('title', '')} {news.get('summary', '')}".lower()
+        on_topic = _matches(text, keywords) if keywords else False
+        related = news.get("related_ticker") in theme_tickers or any(
+            _matches(text, _company_terms(t, meta)) for t, meta in theme_tickers.items()
+        )
+        tier = 0 if (on_topic and related) else 1 if on_topic else 2
+        return (tier, -news["_dt"].timestamp())
+
+    return sorted(news_list, key=relevance)
+
+
+def _normalize_title(title: str) -> str:
+    """Aynı haber farklı yayıncılarda '... - Yahoo Finance' gibi eklerle geliyor;
+    dedupe anahtarı için sondaki kaynak ekini ve noktalamayı atar."""
+    stripped = re.sub(r"\s+[-–|]\s+[^-–|]{2,40}$", "", title).strip().lower()
+    return re.sub(r"[^\w\s]", "", stripped)
+
+
 def _dedupe(news_list):
     seen = set()
     result = []
     for news in news_list:
-        key = news["title"].lower()
+        key = _normalize_title(news["title"])
         if key in seen:
             continue
         seen.add(key)
@@ -168,8 +224,14 @@ def fetch_all_news(config) -> dict:
     combined = _dedupe(rss + yf_news)
     combined.sort(key=lambda x: x["_dt"], reverse=True)
 
-    categorized = categorize_news(combined, config.THEMES)
-    return {theme: items[:MAX_PER_CATEGORY] for theme, items in categorized.items()}
+    categorized = categorize_news(combined, config.THEMES, config.COMPANIES)
+    return {
+        theme: _rank_for_theme(
+            items, theme, config.COMPANIES,
+            config.THEMES.get(theme, {}).get("keywords", []),
+        )[:MAX_PER_CATEGORY]
+        for theme, items in categorized.items()
+    }
 
 
 if __name__ == "__main__":

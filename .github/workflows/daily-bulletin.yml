@@ -2,8 +2,9 @@ name: Gunluk Bulten
 
 on:
   schedule:
-    # 06:00 UTC = 09:00 TR. ABD piyasasi kapandiktan sonraki ilk sabah.
-    - cron: "0 6 * * *"
+    # 05:37 UTC = 08:37 TR. Tam saat basi GitHub kuyrugu yogun oldugu icin
+    # onceki "0 6" ile isler 4-6 saat gecikmeyle basliyordu; dakika kaydirildi.
+    - cron: "37 5 * * *"
   workflow_dispatch: # Actions sekmesinden elle tetiklemek icin
 
 # Repo public: is akisina yalnizca okuma yetkisi ver, GITHUB_TOKEN yazamasin
@@ -13,7 +14,9 @@ permissions:
 jobs:
   bulletin:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # LLM zincirinin en kotu senaryosu (2 saglayici x 3 deneme x 180sn timeout
+    # + 65sn beklemeler) ~22 dk; 15 dk sinirinda job oldurulup hata bildirimi de gitmiyordu.
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v4

@@ -1,6 +1,7 @@
 """Bildirim katmanı: bülteni Telegram'a zengin formatlı özet + tam HTML eki olarak gönderir."""
 
 import os
+import re
 
 import requests
 
@@ -47,7 +48,9 @@ def _format_movers(stock_data: list) -> str:
 
 def _snippet(text: str, limit: int = THEME_SNIPPET_LEN) -> str:
     # LLM markdown üretiyor; kırpma sırasında etiket açık kalmasın diye ** işaretlerini at
-    text = " ".join(text.replace("**", "").split())
+    # ve satır başı madde işaretlerini temizle (tek satıra sıkışınca "* ÖZET" gibi görünüyordu)
+    text = re.sub(r"^[ \t]*[*+-][ \t]+", "", text.replace("**", ""), flags=re.MULTILINE)
+    text = " ".join(text.split())
     if len(text) <= limit:
         return _escape_html(text)
     cut = text[:limit].rsplit(" ", 1)[0]
@@ -130,12 +133,16 @@ def send_error_alert(error_text: str) -> None:
 
 
 def send_report(stock_data, theme_analyses, general, themes_config, report_path: str,
-                analysis_failed: bool = False, failure_reason: str = "") -> bool:
-    """Bülten özetini + HTML ekini Telegram'a gönderir. Hata durumunda False döner, exception fırlatmaz."""
+                analysis_failed: bool = False, failure_reason: str = ""):
+    """Bülten özetini + HTML ekini Telegram'a gönderir; exception fırlatmaz.
+
+    True: gönderildi. False: gönderilmeye çalışıldı ama başarısız (çağıran bunu
+    hata saymalı). None: Telegram yapılandırılmamış, kasıtlı atlandı.
+    """
     token, chat_id = _credentials()
     if not token or not chat_id:
         print(f"[telegram] {TELEGRAM_BOT_TOKEN_ENV}/{TELEGRAM_CHAT_ID_ENV} eksik, bildirim atlandı.")
-        return False
+        return None
 
     from datetime import datetime
     report_date = datetime.now().strftime("%d.%m.%Y %H:%M")

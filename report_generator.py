@@ -139,9 +139,14 @@ footer { color: #6b7080; font-size: 12px; text-align: center; margin-top: 32px;
 
 
 def _nl2br(value):
-    """Satır sonlarını <br>, **kalın** markdown'ını <strong> yapar (LLM markdown üretiyor)."""
+    """Satır sonlarını <br>, **kalın**'ı <strong>, madde işaretlerini • yapar.
+
+    LLM markdown üretiyor; '*   ' ve '- ' satır başları düz metinde ham
+    yıldız/tire olarak görünüyordu.
+    """
     escaped = str(markupsafe.escape(value))
     escaped = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", escaped)
+    escaped = re.sub(r"^[ \t]*[*+-][ \t]+", "• ", escaped, flags=re.MULTILINE)
     return markupsafe.Markup(escaped.replace("\n", "<br>"))
 
 

@@ -107,8 +107,12 @@ def main():
         raise
 
     print("[main] Telegram bildirimi gönderiliyor...")
-    send_report(stock_data, theme_analyses, general, themes, path,
-                analysis_failed, failure_reason)
+    delivered = send_report(stock_data, theme_analyses, general, themes, path,
+                            analysis_failed, failure_reason)
+    # Rapor üretildiği halde teslim edilemediyse run'ı başarılı sayma; yoksa
+    # Actions yeşil görünürken bülten hiç ulaşmamış oluyor.
+    if delivered is False:
+        sys.exit("[main] Bülten üretildi ama Telegram'a teslim edilemedi.")
 
 
 if __name__ == "__main__":
