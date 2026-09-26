@@ -72,8 +72,13 @@ def fetch_rss_news(feed_urls: list, hours: int = 24) -> list[dict]:
 
 def _yf_entry_fields(entry):
     """Eski ve yeni yfinance news şemalarından (title, link, published_dt) çıkarır."""
-    content = entry.get("content", entry)
-    title = content.get("title", "")
+    if not isinstance(entry, dict):
+        return "", "", None
+    # Yahoo bazen "content": null döndürüyor; get(..., entry) anahtar varken None verir
+    content = entry.get("content")
+    if not isinstance(content, dict):
+        content = entry
+    title = content.get("title") or ""
     link = ""
     if isinstance(content.get("clickThroughUrl"), dict):
         link = content["clickThroughUrl"].get("url", "")
@@ -86,7 +91,7 @@ def _yf_entry_fields(entry):
     if pub_date:
         try:
             published_dt = datetime.fromisoformat(pub_date.replace("Z", "+00:00"))
-        except ValueError:
+        except (ValueError, AttributeError):
             published_dt = None
     elif entry.get("providerPublishTime"):
         published_dt = datetime.fromtimestamp(entry["providerPublishTime"], tz=timezone.utc)
@@ -104,7 +109,12 @@ def _fetch_ticker_news(ticker: str, cutoff) -> list[dict]:
 
     items = []
     for entry in raw:
-        title, link, published_dt = _yf_entry_fields(entry)
+        try:
+            title, link, published_dt = _yf_entry_fields(entry)
+        except Exception as exc:
+            # Tek bozuk kayit tum bulteni dusurmesin
+            print(f"[news_fetcher] {ticker} bozuk haber kaydi atlandi: {exc}")
+            continue
         if not title or published_dt is None or published_dt < cutoff:
             continue
         items.append({
