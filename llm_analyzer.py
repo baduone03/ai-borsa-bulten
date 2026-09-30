@@ -97,13 +97,13 @@ def _is_daily_quota_error(exc) -> bool:
     return "429" in text and any(marker in text for marker in DAILY_QUOTA_MARKERS)
 
 
-def _chat_one_provider(provider, system_prompt, user_content):
-    """Tek sağlayıcıda 3 kez retry; hepsi başarısızsa son exception'ı fırlatır."""
+def _chat_one_provider(provider, system_prompt, user_content, retries=MAX_RETRIES):
+    """Tek sağlayıcıda {retries} kez dener; hepsi başarısızsa son exception'ı fırlatır."""
     client = OpenAI(api_key=os.environ[provider["key_env"]],
                     base_url=provider["base_url"])
     model = provider["model"]
     last_exc = None
-    for attempt in range(1, MAX_RETRIES + 1):
+    for attempt in range(1, retries + 1):
         try:
             response = client.chat.completions.create(
                 model=model,
@@ -129,16 +129,16 @@ def _chat_one_provider(provider, system_prompt, user_content):
             raise
         except Exception as exc:
             last_exc = exc
-            print(f"[llm] {model} deneme {attempt}/{MAX_RETRIES} başarısız: {exc}")
+            print(f"[llm] {model} deneme {attempt}/{retries} başarısız: {exc}")
             if _is_daily_quota_error(exc):
                 print(f"[llm] {model} günlük kotası tükenmiş — retry atlanıyor.")
                 break
-            if attempt < MAX_RETRIES:
+            if attempt < retries:
                 time.sleep(RETRY_DELAY)
     raise last_exc
 
 
-def _chat(system_prompt, user_content):
+def _chat(system_prompt, user_content, retries=MAX_RETRIES):
     """Sağlayıcıları sırayla dener, ilk başarılı yanıtı (metin, model) döndürür."""
     providers = available_providers()
     if not providers:
@@ -148,7 +148,7 @@ def _chat(system_prompt, user_content):
     last_exc = None
     for provider in providers:
         try:
-            text = _chat_one_provider(provider, system_prompt, user_content)
+            text = _chat_one_provider(provider, system_prompt, user_content, retries)
             return text, provider["model"]
         except Exception as exc:
             last_exc = exc

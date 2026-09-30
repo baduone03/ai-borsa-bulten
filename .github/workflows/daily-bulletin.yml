@@ -16,7 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     # LLM zincirinin en kotu senaryosu (2 saglayici x 3 deneme x 180sn timeout
     # + 65sn beklemeler) ~22 dk; 15 dk sinirinda job oldurulup hata bildirimi de gitmiyordu.
-    timeout-minutes: 30
+    # Ayri lider bulteni cagrisi (3 saglayici x 1 deneme x 180sn) ~9 dk ekliyor.
+    timeout-minutes: 40
 
     steps:
       - uses: actions/checkout@v4

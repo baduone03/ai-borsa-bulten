@@ -114,3 +114,90 @@ RSS_FEEDS = [
     "https://news.google.com/rss/search?q=data+center+power+grid+electricity+demand&hl=en-US&gl=US&ceid=US:en",
     "https://news.google.com/rss/search?q=data+center+liquid+cooling&hl=en-US&gl=US&ceid=US:en",
 ]
+
+# Bültenin sonundaki "Liderlerin AI Görüşleri" bölümü.
+# Bu kişiler her gün konuşmuyor; 24 saatlik pencere çoğu gün boş dönerdi,
+# bu yüzden haftalık bakılıyor. Google News "when:Nd" operatörü sunucu
+# tarafında da filtreliyor.
+# must_match: başlık/özette bu ifadelerden biri geçmeli — "Amodei" tek başına
+# Dario ile Daniela'yı ayıramıyor, Trump haberlerinin çoğu da AI dışı.
+# require_ai: ayrıca bir AI terimi de geçmeli (THEMES["ai"] keyword'leri +
+# kişiye özel ai_terms — "xAI", "Grok" gibi ürün adları \bAI\b'ye uymuyor).
+LEADER_NEWS_HOURS = 24 * 7
+LEADERS = {
+    "trump": {
+        "name": "Donald Trump",
+        "role": "ABD Başkanı",
+        "query": 'Trump ("artificial intelligence" OR AI)',
+        "must_match": ["Trump"],
+        "require_ai": True,
+    },
+    "altman": {
+        "name": "Sam Altman",
+        "role": "OpenAI CEO",
+        "query": '"Sam Altman"',
+        "must_match": ["Altman"],
+        "require_ai": False,
+    },
+    "dario": {
+        "name": "Dario Amodei",
+        "role": "Anthropic CEO",
+        "query": '"Dario Amodei"',
+        "must_match": ["Dario Amodei", "Dario"],
+        "require_ai": False,
+    },
+    "daniela": {
+        "name": "Daniela Amodei",
+        "role": "Anthropic Başkanı",
+        "query": '"Daniela Amodei"',
+        "must_match": ["Daniela Amodei", "Daniela"],
+        "require_ai": False,
+    },
+    "huang": {
+        "name": "Jensen Huang",
+        "role": "Nvidia CEO",
+        "query": '"Jensen Huang"',
+        "must_match": ["Jensen Huang", "Huang"],
+        "require_ai": False,
+    },
+    "musk": {
+        "name": "Elon Musk",
+        "role": "xAI / Tesla CEO",
+        "query": 'Musk (AI OR xAI OR Grok)',
+        "must_match": ["Musk"],
+        # Musk haberlerinin çoğu AI dışı (siyaset, SpaceX, Tesla satışları)
+        "require_ai": True,
+        "ai_terms": ["xAI", "Grok", "Colossus", "Optimus"],
+    },
+    "zuckerberg": {
+        "name": "Mark Zuckerberg",
+        "role": "Meta CEO",
+        "query": 'Zuckerberg (AI OR superintelligence OR Llama)',
+        "must_match": ["Zuckerberg"],
+        "require_ai": True,
+        "ai_terms": ["superintelligence", "Llama", "Meta AI"],
+    },
+    "nadella": {
+        "name": "Satya Nadella",
+        "role": "Microsoft CEO",
+        "query": '"Satya Nadella"',
+        "must_match": ["Nadella"],
+        "require_ai": True,
+        "ai_terms": ["Copilot", "Azure"],
+    },
+    "pichai": {
+        "name": "Sundar Pichai",
+        "role": "Alphabet/Google CEO",
+        "query": '"Sundar Pichai"',
+        "must_match": ["Pichai"],
+        "require_ai": True,
+        "ai_terms": ["Gemini", "DeepMind", "TPU"],
+    },
+    "hassabis": {
+        "name": "Demis Hassabis",
+        "role": "Google DeepMind CEO",
+        "query": '"Demis Hassabis"',
+        "must_match": ["Hassabis"],
+        "require_ai": False,
+    },
+}
