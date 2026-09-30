@@ -81,16 +81,6 @@ h1 { font-size: 28px; margin: 0 0 4px; }
 .general { background: #1e2235; border-radius: 12px; padding: 20px;
   margin: 32px 0 24px; border: 1px solid #2a2e3e; }
 .general h2 { margin-top: 0; }
-.leader { background: #1a1d29; border-radius: 12px; padding: 16px 18px;
-  margin-bottom: 14px; }
-.leader-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
-.leader-name { font-weight: 600; font-size: 17px; }
-.leader-role { color: #8b90a3; font-size: 13px; }
-.sources { margin: 12px 0 0; padding: 10px 0 0; border-top: 1px solid #2a2e3e;
-  font-size: 12px; list-style: none; }
-.sources li { margin-bottom: 4px; color: #8b90a3; }
-.sources a { color: #7fa8ff; text-decoration: none; }
-.sources a:hover { text-decoration: underline; }
 footer { color: #6b7080; font-size: 12px; text-align: center; margin-top: 32px;
   border-top: 1px solid #2a2e3e; padding-top: 16px; }
 </style>
@@ -166,28 +156,6 @@ footer { color: #6b7080; font-size: 12px; text-align: center; margin-top: 32px;
     <h2>Genel Değerlendirme</h2>
     <div>{{ general | nl2br }}</div>
   </div>
-
-  {% if leaders %}
-  <div class="section">
-    <h2>Liderlerin AI Görüşleri</h2>
-    {% for l in leaders %}
-    <div class="leader">
-      <div class="leader-head">
-        <span class="leader-name">{{ l.name }}</span>
-        <span class="leader-role">{{ l.role }}</span>
-      </div>
-      <div>{{ l.analysis | nl2br }}</div>
-      {% if l.sources %}
-      <ul class="sources">
-        {% for n in l.sources %}
-        <li>{{ n.published }} · {% if n.link %}<a href="{{ n.link }}" target="_blank" rel="noopener">{{ n.title }}</a>{% else %}{{ n.title }}{% endif %}</li>
-        {% endfor %}
-      </ul>
-      {% endif %}
-    </div>
-    {% endfor %}
-  </div>
-  {% endif %}
 
   <footer>
     Bu bülten yapay zeka tarafından oluşturulmuştur. Yatırım tavsiyesi niteliği taşımaz.<br>
@@ -298,31 +266,9 @@ def _enrich_stock(s):
     }
 
 
-def _safe_link(url):
-    """Yalnızca http(s) linklerine izin ver; RSS'ten gelen 'javascript:' vb. elenir."""
-    return url if isinstance(url, str) and url.startswith(("http://", "https://")) else ""
-
-
-def _leaders(leader_analyses, leaders_config, leader_news):
-    leaders = []
-    for key, meta in (leaders_config or {}).items():
-        analysis = (leader_analyses or {}).get(key)
-        if not analysis:
-            continue
-        sources = [
-            {"title": n.get("title", ""), "published": n.get("published", ""),
-             "link": _safe_link(n.get("link"))}
-            for n in (leader_news or {}).get(key, [])
-        ]
-        leaders.append({"name": meta["name"], "role": meta["role"],
-                        "analysis": analysis, "sources": sources})
-    return leaders
-
-
 def generate_report(stock_data, theme_analyses, general_assessment,
-                    companies_config, themes_config,
-                    leader_analyses=None, leaders_config=None, leader_news=None) -> str:
-    """Hisse, tema analizleri, genel değerlendirme ve lider görüşlerinden HTML rapor üretir."""
+                    companies_config, themes_config) -> str:
+    """Hisse, tema analizleri ve genel değerlendirmeden HTML rapor üretir."""
     env = Environment(autoescape=select_autoescape(["html"]))
     env.filters["nl2br"] = _nl2br
     template = env.from_string(TEMPLATE)
@@ -341,7 +287,6 @@ def generate_report(stock_data, theme_analyses, general_assessment,
         themes=themes,
         stocks=stocks,
         general=general_assessment,
-        leaders=_leaders(leader_analyses, leaders_config, leader_news),
     )
 
 

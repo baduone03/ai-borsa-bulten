@@ -42,6 +42,7 @@ py -3 main.py --no-analysis                    # LLM'siz (kota harcamaz)
 py -3 main.py --ticker NVDA --ticker AMD       # sadece belirli hisseler
 py -3 main.py --theme gpu --theme nuclear      # sadece belirli temalar
 py -3 main.py --no-news                        # haber toplamayı atla
+py -3 main.py --no-leaders                     # lider bültenini atla
 ```
 
 Çıktı: `output/bulten_YYYY-MM-DD.html`
@@ -62,7 +63,7 @@ Yapılandırma (`config.py`): 16 şirket, 8 tema, 5 RSS kaynağı.
 
 ## Liderlerin AI Görüşleri
 
-Bültenin sonunda Donald Trump, Sam Altman, Dario ve Daniela Amodei, Jensen Huang, Elon Musk, Mark Zuckerberg, Satya Nadella, Sundar Pichai ve Demis Hassabis'in son 7 gündeki AI açıklamaları özetlenir. Kişi başı Google News RSS araması yapılır (ek anahtar/bağlantı gerekmez). Telegram'da ayrı bir mesaj olarak gelir. Haberler aynı tek LLM çağrısında `### LIDER: x` başlıklarıyla yorumlanır. HTML raporda her kişinin altında kaynak haber linkleri listelenir. Model yalnızca verilen haberlere dayanır; o hafta haber yoksa bunu açıkça yazar.
+Bültenin sonunda Donald Trump, Sam Altman, Dario ve Daniela Amodei, Jensen Huang, Elon Musk, Mark Zuckerberg, Satya Nadella, Sundar Pichai ve Demis Hassabis'in son 7 gündeki AI açıklamaları özetlenir. Kişi başı Google News RSS araması yapılır (ek anahtar/bağlantı gerekmez). **Ana bültenden bağımsızdır:** ana bülten gönderildikten sonra ayrı bir LLM çağrısıyla üretilir, `output/liderler_YYYY-MM-DD.html` olarak kaydedilir ve Telegram'a ayrı mesaj + dosya olarak gelir. Bu adımdaki herhangi bir hata ana bülteni etkilemez; o gün lider bülteni sadece gelmez. Her kişinin altında kaynak haber linkleri listelenir. Model yalnızca verilen haberlere dayanır; o hafta haber yoksa bunu açıkça yazar.
 
 Kişi eklemek/çıkarmak için `config.LEADERS`, pencereyi değiştirmek için `config.LEADER_NEWS_HOURS`.
 

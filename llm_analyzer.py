@@ -68,19 +68,6 @@ KURALLAR:
   bu kâr realizasyonu mu yoksa temel tez kırılması mı?'
 - Türkçe yaz, profesyonel ama anlaşılır.
 
-LİDER GÖRÜŞLERİ:
-Girdinin sonunda LİDER bölümleri var: bazı siyasi ve sektör liderlerinin
-son günlerdeki AI ile ilgili haberleri. Her lider için 2-3 kısa madde yaz:
-- NE DEDİ/YAPTI: Yalnızca verilen haber başlık ve özetlerine dayan.
-  Haberde geçmeyen alıntı, tarih veya rakam uydurma; doğrudan alıntıyı
-  ancak haberde tırnak içinde geçiyorsa kullan. Hangi yayına dayandığını belirt.
-- AI'A BAKIŞI: Mesajın yönü (regülasyon, yatırım, güvenlik, rekabet,
-  ihracat kontrolü, istihdam vb.).
-- PİYASA ETKİSİ: Portföydeki hangi hisse/temaları ilgilendirebilir.
-Bir lider için haber verilmemişse tek cümle yaz: 'Son günlerde AI
-hakkında kayda değer bir açıklaması haberlere yansımadı.' Eski
-bilgilerinden açıklama üretme.
-
 ÇIKTI FORMATI (kesinlikle uy):
 Her tema için şu başlıkla bir bölüm yaz (tema_anahtarı sana verilen
 anahtarın birebir aynısı olmalı):
@@ -91,11 +78,6 @@ En sona şu başlıkla günün genel değerlendirmesini ekle:
 ### GENEL
 (piyasa yönü, riskler ve fırsatlar; spekülatif ve oturmuş şirketleri
 ayrı tut; maksimum 200 kelimelik tek paragraf)
-
-GENEL'den sonra, girdide LİDER bölümü verilen her lider için şu başlıkla
-bir bölüm yaz (lider_anahtarı verilenin birebir aynısı olmalı):
-### LIDER: lider_anahtarı
-(o liderin görüşleri, yukarıdaki LİDER GÖRÜŞLERİ kurallarıyla)
 
 Bu başlıklar dışında başlık, giriş veya kapanış metni ekleme."""
 
@@ -115,13 +97,13 @@ def _is_daily_quota_error(exc) -> bool:
     return "429" in text and any(marker in text for marker in DAILY_QUOTA_MARKERS)
 
 
-def _chat_one_provider(provider, system_prompt, user_content):
-    """Tek sağlayıcıda 3 kez retry; hepsi başarısızsa son exception'ı fırlatır."""
+def _chat_one_provider(provider, system_prompt, user_content, retries=MAX_RETRIES):
+    """Tek sağlayıcıda {retries} kez dener; hepsi başarısızsa son exception'ı fırlatır."""
     client = OpenAI(api_key=os.environ[provider["key_env"]],
                     base_url=provider["base_url"])
     model = provider["model"]
     last_exc = None
-    for attempt in range(1, MAX_RETRIES + 1):
+    for attempt in range(1, retries + 1):
         try:
             response = client.chat.completions.create(
                 model=model,
@@ -147,16 +129,16 @@ def _chat_one_provider(provider, system_prompt, user_content):
             raise
         except Exception as exc:
             last_exc = exc
-            print(f"[llm] {model} deneme {attempt}/{MAX_RETRIES} başarısız: {exc}")
+            print(f"[llm] {model} deneme {attempt}/{retries} başarısız: {exc}")
             if _is_daily_quota_error(exc):
                 print(f"[llm] {model} günlük kotası tükenmiş — retry atlanıyor.")
                 break
-            if attempt < MAX_RETRIES:
+            if attempt < retries:
                 time.sleep(RETRY_DELAY)
     raise last_exc
 
 
-def _chat(system_prompt, user_content):
+def _chat(system_prompt, user_content, retries=MAX_RETRIES):
     """Sağlayıcıları sırayla dener, ilk başarılı yanıtı (metin, model) döndürür."""
     providers = available_providers()
     if not providers:
@@ -166,7 +148,7 @@ def _chat(system_prompt, user_content):
     last_exc = None
     for provider in providers:
         try:
-            text = _chat_one_provider(provider, system_prompt, user_content)
+            text = _chat_one_provider(provider, system_prompt, user_content, retries)
             return text, provider["model"]
         except Exception as exc:
             last_exc = exc
@@ -204,18 +186,8 @@ def _stocks_for_theme(theme_key, stock_data, companies_config):
     return [s for s in stock_data if s.get("ticker") in tickers]
 
 
-def _format_leader_news(news_list):
-    # Google News RSS'te summary başlığın tekrarı; 10 lider x 4 haberde
-    # boşa token yakmasın diye yalnızca başlık gönderiliyor
-    lines = []
-    for news in news_list:
-        lines.append(f"- [{news.get('published', '')}] {news.get('title', '')}")
-    return "\n".join(lines) if lines else "(Bu dönemde AI ile ilgili haber yok.)"
-
-
-def _build_user_content(news_by_theme, stock_data, themes_config, companies_config,
-                        leader_news=None, leaders_config=None):
-    """Tüm hisse verilerini + tema tema haberleri + lider haberlerini tek prompt'ta toplar."""
+def _build_user_content(news_by_theme, stock_data, themes_config, companies_config):
+    """Tüm hisse verilerini + tema tema haberleri tek prompt'ta toplar."""
     parts = [f"TÜM HİSSE VERİLERİ:\n{_format_stocks(stock_data)}"]
     for theme_key, meta in themes_config.items():
         related = _stocks_for_theme(theme_key, stock_data, companies_config)
@@ -225,44 +197,32 @@ def _build_user_content(news_by_theme, stock_data, themes_config, companies_conf
             f"İlgili tickerlar: {tickers}\n"
             f"HABERLER:\n{_format_news(news_by_theme.get(theme_key, []))}"
         )
-    for key, meta in (leaders_config or {}).items():
-        parts.append(
-            f"LİDER: {key} ({meta['name']}, {meta['role']})\n"
-            f"HABERLER:\n{_format_leader_news((leader_news or {}).get(key, []))}"
-        )
     return "\n\n".join(parts)
 
 
-def _parse_bulletin(text, theme_keys, leader_keys=()):
-    """### TEMA: x / ### LIDER: x / ### GENEL başlıklarına göre metni bölümlere ayırır."""
+def _parse_bulletin(text, theme_keys):
+    """### TEMA: x / ### GENEL başlıklarına göre metni bölümlere ayırır."""
     matches = list(re.finditer(
-        r"^#{1,4}\s*\**(?:(TEMA|L[İI]DER):\s*\**([\w-]+)\**|GENEL)\**\s*$",
-        text, re.MULTILINE,
+        r"^#{1,4}\s*(?:TEMA:\s*\**([\w-]+)\**|GENEL)\**\s*$", text, re.MULTILINE
     ))
     theme_analyses = {}
-    leader_analyses = {}
     general = ""
     for i, match in enumerate(matches):
         end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
         body = text[match.end():end].strip()
-        kind, key = match.group(1), match.group(2)
-        if kind is None:
+        key = match.group(1)
+        if key is None:
             general = body
-        elif kind == "TEMA" and key in theme_keys:
+        elif key in theme_keys:
             theme_analyses[key] = body
-        elif kind != "TEMA" and key in leader_keys:
-            leader_analyses[key] = body
-    return theme_analyses, general, leader_analyses
+    return theme_analyses, general
 
 
 def analyze_all(news_by_theme: dict, stock_data: list,
-                themes_config: dict, companies_config: dict,
-                leader_news: dict = None, leaders_config: dict = None) -> dict:
-    """Tüm temaları + genel değerlendirmeyi + lider görüşlerini tek LLM çağrısıyla üretir."""
-    leaders_config = leaders_config or {}
+                themes_config: dict, companies_config: dict) -> dict:
+    """Tüm temaları + genel değerlendirmeyi tek LLM çağrısıyla üretir."""
     user_content = _build_user_content(
-        news_by_theme, stock_data, themes_config, companies_config,
-        leader_news, leaders_config,
+        news_by_theme, stock_data, themes_config, companies_config
     )
     try:
         text, model = _chat(SYSTEM_PROMPT, user_content)
@@ -275,14 +235,11 @@ def analyze_all(news_by_theme: dict, stock_data: list,
         return {
             "theme_analyses": {key: FAILURE_TEXT for key in themes_config},
             "general": FAILURE_TEXT,
-            "leader_analyses": {key: FAILURE_TEXT for key in leaders_config},
             "failed": True,
             "reason": reason,
         }
 
-    theme_analyses, general, leader_analyses = _parse_bulletin(
-        text, set(themes_config), set(leaders_config)
-    )
+    theme_analyses, general = _parse_bulletin(text, set(themes_config))
     for key in themes_config:
         if key not in theme_analyses:
             print(f"[llm] uyarı: model '{key}' temasını atladı")
@@ -290,12 +247,8 @@ def analyze_all(news_by_theme: dict, stock_data: list,
     if not general:
         print("[llm] uyarı: genel değerlendirme bölümü bulunamadı")
         general = FAILURE_TEXT
-    for key in leaders_config:
-        if key not in leader_analyses:
-            print(f"[llm] uyarı: model '{key}' lider bölümünü atladı")
-            leader_analyses[key] = FAILURE_TEXT
     return {"theme_analyses": theme_analyses, "general": general,
-            "leader_analyses": leader_analyses, "failed": False, "reason": ""}
+            "failed": False, "reason": ""}
 
 
 if __name__ == "__main__":
@@ -303,17 +256,10 @@ if __name__ == "__main__":
 1. ÖZET: Test.
 
 ### GENEL
-Piyasa test modunda.
-
-### LIDER: altman
-- NE DEDİ: Test.
-
-### LİDER: **trump**
-- AI'A BAKIŞI: Test."""
-    themes, general, leaders = _parse_bulletin(sample, {"gpu", "ai"}, {"altman", "trump"})
+Piyasa test modunda."""
+    themes, general = _parse_bulletin(sample, {"gpu", "ai"})
     assert themes == {"gpu": "1. ÖZET: Test."}, themes
     assert general == "Piyasa test modunda.", general
-    assert leaders == {"altman": "- NE DEDİ: Test.", "trump": "- AI'A BAKIŞI: Test."}, leaders
     print("parse testi PASS")
 
     active = available_providers()

@@ -91,26 +91,6 @@ def build_summary_message(stock_data, theme_analyses, general,
     return message
 
 
-def build_leaders_message(leader_analyses: dict, leaders_config: dict) -> str:
-    """Lider görüşlerini ayrı mesajda özetler; ana özet 4096 sınırına zaten yakın.
-
-    Hiç lider analizi yoksa boş string döner (mesaj gönderilmez).
-    """
-    lines = ["🎙 <b>Liderlerin AI Görüşleri</b>"]
-    for key, meta in (leaders_config or {}).items():
-        analysis = (leader_analyses or {}).get(key)
-        if not analysis:
-            continue
-        lines.append(f"\n<b>{_escape_html(meta['name'])}</b> "
-                     f"<i>({_escape_html(meta['role'])})</i>\n{_snippet(analysis)}")
-    if len(lines) == 1:
-        return ""
-    message = "\n".join(lines)
-    if len(message) > MAX_MESSAGE_LEN:
-        message = message[:MAX_MESSAGE_LEN - 1].rsplit("\n", 1)[0] + "\n…"
-    return message
-
-
 def _redact(text, token: str) -> str:
     """Bot token'ı istek URL'sinin içinde geçer; hata metinleri Actions loglarına
     düştüğü için token'ı maskeler (repo public, loglar herkese açık)."""
@@ -153,8 +133,7 @@ def send_error_alert(error_text: str) -> None:
 
 
 def send_report(stock_data, theme_analyses, general, themes_config, report_path: str,
-                analysis_failed: bool = False, failure_reason: str = "",
-                leader_analyses: dict = None, leaders_config: dict = None):
+                analysis_failed: bool = False, failure_reason: str = ""):
     """Bülten özetini + HTML ekini Telegram'a gönderir; exception fırlatmaz.
 
     True: gönderildi. False: gönderilmeye çalışıldı ama başarısız (çağıran bunu
@@ -173,10 +152,6 @@ def send_report(stock_data, theme_analyses, general, themes_config, report_path:
                                         themes_config, report_date,
                                         analysis_failed, failure_reason)
         send_telegram_message(token, chat_id, message)
-        if not analysis_failed:
-            leaders_message = build_leaders_message(leader_analyses, leaders_config)
-            if leaders_message:
-                send_telegram_message(token, chat_id, leaders_message)
         send_telegram_document(token, chat_id, report_path,
                                caption="AI Borsa Takip Bülteni — tam rapor")
         print("[telegram] Bildirim gönderildi.")
