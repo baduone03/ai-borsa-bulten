@@ -13,7 +13,7 @@ from config import RSS_FEEDS, THEMES, COMPANIES
 
 DATE_FMT = "%Y-%m-%d %H:%M"
 MAX_PER_CATEGORY = 10
-MAX_PER_LEADER = 5
+MAX_PER_LEADER = 4
 MAX_WORKERS = 8
 
 
@@ -262,7 +262,7 @@ def _leader_relevant(news: dict, meta: dict, ai_keywords: list) -> bool:
     text = f"{news.get('title', '')} {news.get('summary', '')}".lower()
     if not _matches(text, meta["must_match"]):
         return False
-    return not meta.get("require_ai") or _matches(text, ai_keywords)
+    return not meta.get("require_ai") or _matches(text, ai_keywords + meta.get("ai_terms", []))
 
 
 def fetch_leader_news(leaders: dict, hours: int, ai_keywords: list) -> dict:

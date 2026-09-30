@@ -59,8 +59,7 @@ def _snippet(text: str, limit: int = THEME_SNIPPET_LEN) -> str:
 
 def build_summary_message(stock_data, theme_analyses, general,
                           themes_config, report_date: str,
-                          analysis_failed: bool = False, failure_reason: str = "",
-                          leader_analyses: dict = None, leaders_config: dict = None) -> str:
+                          analysis_failed: bool = False, failure_reason: str = "") -> str:
     """Zengin, HTML formatlı Telegram özet mesajı üretir (tema başlıkları + kısa özet)."""
     parts = [f"📊 <b>AI Borsa Takip Bülteni</b> — {_escape_html(report_date)}"]
 
@@ -83,19 +82,30 @@ def build_summary_message(stock_data, theme_analyses, general,
             theme_lines.append(f"\n<b>{_escape_html(meta['title'])}</b>\n{_snippet(analysis)}")
         parts.append("\n".join(theme_lines))
 
-        leader_lines = ["\n<b>🎙 Liderlerin AI Görüşleri</b>"]
-        for key, meta in (leaders_config or {}).items():
-            analysis = (leader_analyses or {}).get(key)
-            if not analysis:
-                continue
-            leader_lines.append(f"\n<b>{_escape_html(meta['name'])}</b>\n{_snippet(analysis)}")
-        if len(leader_lines) > 1:
-            parts.append("\n".join(leader_lines))
-
     parts.append("\n📎 Tam rapor ekteki HTML dosyasında.")
     parts.append("⚠️ Yatırım tavsiyesi niteliği taşımaz.")
 
     message = "\n".join(parts)
+    if len(message) > MAX_MESSAGE_LEN:
+        message = message[:MAX_MESSAGE_LEN - 1].rsplit("\n", 1)[0] + "\n…"
+    return message
+
+
+def build_leaders_message(leader_analyses: dict, leaders_config: dict) -> str:
+    """Lider görüşlerini ayrı mesajda özetler; ana özet 4096 sınırına zaten yakın.
+
+    Hiç lider analizi yoksa boş string döner (mesaj gönderilmez).
+    """
+    lines = ["🎙 <b>Liderlerin AI Görüşleri</b>"]
+    for key, meta in (leaders_config or {}).items():
+        analysis = (leader_analyses or {}).get(key)
+        if not analysis:
+            continue
+        lines.append(f"\n<b>{_escape_html(meta['name'])}</b> "
+                     f"<i>({_escape_html(meta['role'])})</i>\n{_snippet(analysis)}")
+    if len(lines) == 1:
+        return ""
+    message = "\n".join(lines)
     if len(message) > MAX_MESSAGE_LEN:
         message = message[:MAX_MESSAGE_LEN - 1].rsplit("\n", 1)[0] + "\n…"
     return message
@@ -161,9 +171,12 @@ def send_report(stock_data, theme_analyses, general, themes_config, report_path:
     try:
         message = build_summary_message(stock_data, theme_analyses, general,
                                         themes_config, report_date,
-                                        analysis_failed, failure_reason,
-                                        leader_analyses, leaders_config)
+                                        analysis_failed, failure_reason)
         send_telegram_message(token, chat_id, message)
+        if not analysis_failed:
+            leaders_message = build_leaders_message(leader_analyses, leaders_config)
+            if leaders_message:
+                send_telegram_message(token, chat_id, leaders_message)
         send_telegram_document(token, chat_id, report_path,
                                caption="AI Borsa Takip Bülteni — tam rapor")
         print("[telegram] Bildirim gönderildi.")

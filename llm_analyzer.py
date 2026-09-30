@@ -70,7 +70,7 @@ KURALLAR:
 
 LİDER GÖRÜŞLERİ:
 Girdinin sonunda LİDER bölümleri var: bazı siyasi ve sektör liderlerinin
-son günlerdeki AI ile ilgili haberleri. Her lider için 2-4 madde yaz:
+son günlerdeki AI ile ilgili haberleri. Her lider için 2-3 kısa madde yaz:
 - NE DEDİ/YAPTI: Yalnızca verilen haber başlık ve özetlerine dayan.
   Haberde geçmeyen alıntı, tarih veya rakam uydurma; doğrudan alıntıyı
   ancak haberde tırnak içinde geçiyorsa kullan. Hangi yayına dayandığını belirt.
@@ -205,11 +205,11 @@ def _stocks_for_theme(theme_key, stock_data, companies_config):
 
 
 def _format_leader_news(news_list):
+    # Google News RSS'te summary başlığın tekrarı; 10 lider x 4 haberde
+    # boşa token yakmasın diye yalnızca başlık gönderiliyor
     lines = []
     for news in news_list:
-        summary = news.get("summary", "")
-        lines.append(f"- [{news.get('published', '')}] {news.get('title', '')} "
-                     f"({news.get('source', '')})\n  {summary}".rstrip())
+        lines.append(f"- [{news.get('published', '')}] {news.get('title', '')}")
     return "\n".join(lines) if lines else "(Bu dönemde AI ile ilgili haber yok.)"
 
 

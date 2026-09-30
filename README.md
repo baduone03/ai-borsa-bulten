@@ -62,7 +62,7 @@ Yapılandırma (`config.py`): 16 şirket, 8 tema, 5 RSS kaynağı.
 
 ## Liderlerin AI Görüşleri
 
-Bültenin sonunda Donald Trump, Sam Altman, Dario Amodei ve Daniela Amodei'nin son 7 gündeki AI açıklamaları özetlenir. Kişi başı Google News RSS araması yapılır (ek anahtar/bağlantı gerekmez). Haberler aynı tek LLM çağrısında `### LIDER: x` başlıklarıyla yorumlanır. HTML raporda her kişinin altında kaynak haber linkleri listelenir. Model yalnızca verilen haberlere dayanır; o hafta haber yoksa bunu açıkça yazar.
+Bültenin sonunda Donald Trump, Sam Altman, Dario ve Daniela Amodei, Jensen Huang, Elon Musk, Mark Zuckerberg, Satya Nadella, Sundar Pichai ve Demis Hassabis'in son 7 gündeki AI açıklamaları özetlenir. Kişi başı Google News RSS araması yapılır (ek anahtar/bağlantı gerekmez). Telegram'da ayrı bir mesaj olarak gelir. Haberler aynı tek LLM çağrısında `### LIDER: x` başlıklarıyla yorumlanır. HTML raporda her kişinin altında kaynak haber linkleri listelenir. Model yalnızca verilen haberlere dayanır; o hafta haber yoksa bunu açıkça yazar.
 
 Kişi eklemek/çıkarmak için `config.LEADERS`, pencereyi değiştirmek için `config.LEADER_NEWS_HOURS`.
 
