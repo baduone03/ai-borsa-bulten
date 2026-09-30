@@ -60,6 +60,12 @@ py -3 main.py --no-news                        # haber toplamayı atla
 
 Yapılandırma (`config.py`): 16 şirket, 8 tema, 5 RSS kaynağı.
 
+## Liderlerin AI Görüşleri
+
+Bültenin sonunda Donald Trump, Sam Altman, Dario Amodei ve Daniela Amodei'nin son 7 gündeki AI açıklamaları özetlenir. Kişi başı Google News RSS araması yapılır (ek anahtar/bağlantı gerekmez). Haberler aynı tek LLM çağrısında `### LIDER: x` başlıklarıyla yorumlanır. HTML raporda her kişinin altında kaynak haber linkleri listelenir. Model yalnızca verilen haberlere dayanır; o hafta haber yoksa bunu açıkça yazar.
+
+Kişi eklemek/çıkarmak için `config.LEADERS`, pencereyi değiştirmek için `config.LEADER_NEWS_HOURS`.
+
 ## Neden tek LLM çağrısı
 
 Tema başına ayrı çağrı ücretsiz kotaları hızla tüketiyordu (Gemini'de günlük 20 istek sınırına takıldık). Bülten tek istekte üretilip `### TEMA: x` / `### GENEL` başlıklarıyla ayrıştırılıyor. Ek fayda: model bülteni bir bütün olarak kurguluyor.

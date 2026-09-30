@@ -2,6 +2,7 @@
 
 import calendar
 import re
+import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
@@ -12,6 +13,7 @@ from config import RSS_FEEDS, THEMES, COMPANIES
 
 DATE_FMT = "%Y-%m-%d %H:%M"
 MAX_PER_CATEGORY = 10
+MAX_PER_LEADER = 5
 MAX_WORKERS = 8
 
 
@@ -247,6 +249,42 @@ def fetch_all_news(config) -> dict:
         )[:MAX_PER_CATEGORY]
         for theme, items in categorized.items()
     }
+
+
+def _leader_feed_url(query: str, hours: int) -> str:
+    days = max(1, hours // 24)
+    params = {"q": f"{query} when:{days}d", "hl": "en-US", "gl": "US", "ceid": "US:en"}
+    return "https://news.google.com/rss/search?" + urllib.parse.urlencode(params)
+
+
+def _leader_relevant(news: dict, meta: dict, ai_keywords: list) -> bool:
+    """Haber gerçekten bu kişiyle (ve gerekiyorsa AI ile) ilgili mi."""
+    text = f"{news.get('title', '')} {news.get('summary', '')}".lower()
+    if not _matches(text, meta["must_match"]):
+        return False
+    return not meta.get("require_ai") or _matches(text, ai_keywords)
+
+
+def fetch_leader_news(leaders: dict, hours: int, ai_keywords: list) -> dict:
+    """Her lider için Google News'te son {hours} saatin haberlerini çeker.
+
+    Dönüş: {lider_anahtarı: [haber, ...]} — kişi başı en yeni MAX_PER_LEADER haber.
+    Haber yoksa liste boş kalır; LLM bunu 'kayda değer açıklama yok' diye yazar.
+    """
+    if not leaders:
+        return {}
+    cutoff = _now_utc() - timedelta(hours=hours)
+    keys = list(leaders)
+    urls = [_leader_feed_url(leaders[k]["query"], hours) for k in keys]
+    with ThreadPoolExecutor(max_workers=min(MAX_WORKERS, len(urls))) as pool:
+        per_leader = list(pool.map(lambda url: _fetch_single_feed(url, cutoff), urls))
+
+    result = {}
+    for key, items in zip(keys, per_leader):
+        relevant = [n for n in _dedupe(items) if _leader_relevant(n, leaders[key], ai_keywords)]
+        relevant.sort(key=lambda x: x["_dt"], reverse=True)
+        result[key] = relevant[:MAX_PER_LEADER]
+    return result
 
 
 if __name__ == "__main__":

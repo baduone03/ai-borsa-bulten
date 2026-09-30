@@ -59,7 +59,8 @@ def _snippet(text: str, limit: int = THEME_SNIPPET_LEN) -> str:
 
 def build_summary_message(stock_data, theme_analyses, general,
                           themes_config, report_date: str,
-                          analysis_failed: bool = False, failure_reason: str = "") -> str:
+                          analysis_failed: bool = False, failure_reason: str = "",
+                          leader_analyses: dict = None, leaders_config: dict = None) -> str:
     """Zengin, HTML formatlı Telegram özet mesajı üretir (tema başlıkları + kısa özet)."""
     parts = [f"📊 <b>AI Borsa Takip Bülteni</b> — {_escape_html(report_date)}"]
 
@@ -81,6 +82,15 @@ def build_summary_message(stock_data, theme_analyses, general,
                 continue
             theme_lines.append(f"\n<b>{_escape_html(meta['title'])}</b>\n{_snippet(analysis)}")
         parts.append("\n".join(theme_lines))
+
+        leader_lines = ["\n<b>🎙 Liderlerin AI Görüşleri</b>"]
+        for key, meta in (leaders_config or {}).items():
+            analysis = (leader_analyses or {}).get(key)
+            if not analysis:
+                continue
+            leader_lines.append(f"\n<b>{_escape_html(meta['name'])}</b>\n{_snippet(analysis)}")
+        if len(leader_lines) > 1:
+            parts.append("\n".join(leader_lines))
 
     parts.append("\n📎 Tam rapor ekteki HTML dosyasında.")
     parts.append("⚠️ Yatırım tavsiyesi niteliği taşımaz.")
@@ -133,7 +143,8 @@ def send_error_alert(error_text: str) -> None:
 
 
 def send_report(stock_data, theme_analyses, general, themes_config, report_path: str,
-                analysis_failed: bool = False, failure_reason: str = ""):
+                analysis_failed: bool = False, failure_reason: str = "",
+                leader_analyses: dict = None, leaders_config: dict = None):
     """Bülten özetini + HTML ekini Telegram'a gönderir; exception fırlatmaz.
 
     True: gönderildi. False: gönderilmeye çalışıldı ama başarısız (çağıran bunu
@@ -150,7 +161,8 @@ def send_report(stock_data, theme_analyses, general, themes_config, report_path:
     try:
         message = build_summary_message(stock_data, theme_analyses, general,
                                         themes_config, report_date,
-                                        analysis_failed, failure_reason)
+                                        analysis_failed, failure_reason,
+                                        leader_analyses, leaders_config)
         send_telegram_message(token, chat_id, message)
         send_telegram_document(token, chat_id, report_path,
                                caption="AI Borsa Takip Bülteni — tam rapor")

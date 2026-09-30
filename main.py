@@ -15,7 +15,7 @@ sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 import config
 from stock_data import get_all_stocks
-from news_fetcher import fetch_all_news
+from news_fetcher import fetch_all_news, fetch_leader_news
 from llm_analyzer import analyze_all, available_providers
 from report_generator import generate_report, save_report
 from telegram_notifier import send_report, send_error_alert
@@ -72,6 +72,7 @@ def main():
         stock_data = get_all_stocks(companies)
 
         news_by_theme = {}
+        leader_news = {}
         if args.no_news:
             print("[main] Haber toplama atlandı (--no-news).")
         else:
@@ -83,22 +84,32 @@ def main():
             total = sum(len(v) for v in news_by_theme.values())
             print(f"[main] {total} haber toplandı.")
 
+            print("[main] Liderlerin AI açıklamaları toplanıyor...")
+            leader_news = fetch_leader_news(config.LEADERS, config.LEADER_NEWS_HOURS,
+                                            config.THEMES["ai"]["keywords"])
+            counts = ", ".join(f"{k}={len(v)}" for k, v in leader_news.items())
+            print(f"[main] Lider haberleri: {counts}")
+
         if args.no_analysis:
             print("[main] LLM analizi atlandı (--no-analysis).")
             theme_analyses = {}
+            leader_analyses = {}
             general = "LLM analizi bu çalıştırmada atlandı (--no-analysis)."
             analysis_failed, failure_reason = False, ""
         else:
             chain = " → ".join(p["model"] for p in providers)
             print(f"[main] {len(themes)} tema tek çağrıda analiz ediliyor (sağlayıcı sırası: {chain})...")
-            result = analyze_all(news_by_theme, stock_data, themes, companies)
+            result = analyze_all(news_by_theme, stock_data, themes, companies,
+                                 leader_news, config.LEADERS)
             theme_analyses = result["theme_analyses"]
+            leader_analyses = result["leader_analyses"]
             general = result["general"]
             analysis_failed = result["failed"]
             failure_reason = result["reason"]
 
         print("[main] HTML rapor üretiliyor...")
-        html = generate_report(stock_data, theme_analyses, general, companies, themes)
+        html = generate_report(stock_data, theme_analyses, general, companies, themes,
+                               leader_analyses, config.LEADERS, leader_news)
         path = save_report(html)
         print(f"[main] Rapor hazır: {path}")
     except Exception as exc:
@@ -108,7 +119,8 @@ def main():
 
     print("[main] Telegram bildirimi gönderiliyor...")
     delivered = send_report(stock_data, theme_analyses, general, themes, path,
-                            analysis_failed, failure_reason)
+                            analysis_failed, failure_reason,
+                            leader_analyses, config.LEADERS)
     # Rapor üretildiği halde teslim edilemediyse run'ı başarılı sayma; yoksa
     # Actions yeşil görünürken bülten hiç ulaşmamış oluyor.
     if delivered is False:
