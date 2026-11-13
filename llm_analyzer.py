@@ -63,8 +63,9 @@ KURALLAR:
 - Eğer bir temada gerçekten önemli haber yoksa bunu tek cümleyle açıkça
   söyle. Bülteni doldurmak için büyük haber icat etme.
 - Spekülatif şirketleri (NuScale gibi henüz kâr etmeyenler) ayrı belirt.
-- Hisse verilerindeki 1 aylık ve 1 yıllık performansı karşılaştırarak
-  yorum yap. Örnek: '1 yıllık trend yukarı ama son 1 ayda %8 düzeltme —
+- Hisse verilerindeki 1 ay, 3 ay, 6 ay ve 1 yıllık performansı
+  karşılaştırarak yorum yap; düşüşün ne zaman başladığını bu dört
+  dönemden çıkar. Örnek: '1 yıllık trend yukarı ama son 1 ayda %8 düzeltme —
   bu kâr realizasyonu mu yoksa temel tez kırılması mı?'
 - Türkçe yaz, profesyonel ama anlaşılır.
 
@@ -171,6 +172,7 @@ def _format_stocks(stocks):
         lines.append(
             f"- {s.get('name', s.get('ticker'))} ({s.get('ticker')}): "
             f"fiyat {s.get('price')}, 1ay {s.get('change_1m')}%, "
+            f"3ay {s.get('change_3m')}%, 6ay {s.get('change_6m')}%, "
             f"1yıl {s.get('change_1y')}%, trend: {s.get('trend_note')}\n"
             f"  TEKNİK: {format_for_prompt(s.get('technical'))}"
         )

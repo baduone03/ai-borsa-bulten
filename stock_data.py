@@ -1,4 +1,4 @@
-"""Hisse verisi katmanı: yfinance ile fiyat, 1ay/1yıl performans ve trend analizi."""
+"""Hisse verisi katmanı: yfinance ile fiyat, 1ay/3ay/6ay/1yıl performans ve trend analizi."""
 
 import json
 from concurrent.futures import ThreadPoolExecutor
@@ -55,6 +55,8 @@ def get_stock_summary(ticker: str) -> dict:
         "ticker": ticker,
         "price": NA,
         "change_1m": NA,
+        "change_3m": NA,
+        "change_6m": NA,
         "change_1y": NA,
         "high_52w": NA,
         "low_52w": NA,
@@ -83,10 +85,11 @@ def get_stock_summary(ticker: str) -> dict:
         current = round(float(closes.iloc[-1]), 2)
     summary["price"] = round(float(current), 2)
 
-    # 1 ay ~ 21 işlem günü
-    close_1m = float(closes.iloc[-22]) if len(closes) >= 22 else None
+    # 1 ay ~ 21, 3 ay ~ 63, 6 ay ~ 126 işlem günü; N gün önceki kapanış iloc[-(N+1)]
+    for key, days in (("change_1m", 21), ("change_3m", 63), ("change_6m", 126)):
+        past = float(closes.iloc[-(days + 1)]) if len(closes) > days else None
+        summary[key] = _pct_change(current, past)
     close_1y = float(closes.iloc[0]) if len(closes) >= 2 else None
-    summary["change_1m"] = _pct_change(current, close_1m)
     summary["change_1y"] = _pct_change(current, close_1y)
 
     summary["high_52w"] = round(float(info.get("fiftyTwoWeekHigh", closes.max())), 2)

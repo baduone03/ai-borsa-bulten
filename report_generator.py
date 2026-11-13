@@ -48,7 +48,8 @@ h1 { font-size: 28px; margin: 0 0 4px; }
 .name { font-weight: 600; font-size: 16px; }
 .ticker { color: #8b90a3; font-size: 13px; }
 .price { font-size: 26px; font-weight: 700; margin: 6px 0; }
-.perf { display: flex; gap: 18px; font-size: 14px; margin-bottom: 10px; }
+.perf { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; font-size: 14px;
+  margin-bottom: 10px; }
 .perf .lbl { color: #8b90a3; font-size: 12px; display: block; }
 .pos { color: #00d26a; font-weight: 600; }
 .neg { color: #ff4757; font-weight: 600; }
@@ -118,8 +119,9 @@ footer { color: #6b7080; font-size: 12px; text-align: center; margin-top: 32px;
         </div>
         <div class="price">{{ s.price_str }}</div>
         <div class="perf">
-          <div><span class="lbl">1 Ay</span><span class="{{ s.cls_1m }}">{{ s.change_1m_str }}</span></div>
-          <div><span class="lbl">1 Yıl</span><span class="{{ s.cls_1y }}">{{ s.change_1y_str }}</span></div>
+          {% for p in s.perf %}
+          <div><span class="lbl">{{ p.label }}</span><span class="{{ p.cls }}">{{ p.value }}</span></div>
+          {% endfor %}
         </div>
         {% if s.range_pct is not none %}
         <div class="range">
@@ -196,6 +198,9 @@ def _range_pct(price, low, high):
     return round(max(0, min(100, pct)), 1)
 
 
+PERF_PERIODS = [("1 Ay", "change_1m"), ("3 Ay", "change_3m"),
+                ("6 Ay", "change_6m"), ("1 Yıl", "change_1y")]
+
 SPARK_UP, SPARK_DOWN = "#00d26a", "#ff4757"
 
 
@@ -244,8 +249,10 @@ def _tech_items(ta):
 
 def _enrich_stock(s):
     """Hisse dict'ini şablon için görsel alanlarla zenginleştirir (mutasyon yok)."""
-    change_1m_str, cls_1m = _change_str(s.get("change_1m"))
-    change_1y_str, cls_1y = _change_str(s.get("change_1y"))
+    perf = []
+    for label, key in PERF_PERIODS:
+        value, cls = _change_str(s.get(key))
+        perf.append({"label": label, "value": value, "cls": cls})
     ta = s.get("technical") or {}
     spark_path, spark_color = _spark(s.get("spark"))
     return {
@@ -255,10 +262,7 @@ def _enrich_stock(s):
         "tech_items": _tech_items(ta),
         "tech_signals": ta.get("signals", []),
         "price_str": f"${s['price']:.2f}" if _num(s.get("price")) else NA,
-        "change_1m_str": change_1m_str,
-        "change_1y_str": change_1y_str,
-        "cls_1m": cls_1m,
-        "cls_1y": cls_1y,
+        "perf": perf,
         "range_pct": _range_pct(s.get("price"), s.get("low_52w"), s.get("high_52w")),
         "category_badge": CATEGORY_BADGES.get(s.get("category")),
         "trend_badge": TREND_BADGES.get(s.get("trend_signal")),
