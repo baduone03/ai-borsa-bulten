@@ -47,3 +47,19 @@ jobs:
           path: output/*.html
           retention-days: 30
           if-no-files-found: warn
+
+  # GitHub, public repoda 60 gun commit olmazsa zamanlanmis isleri sessizce
+  # kapatiyor. Workflow'u API ile yeniden "enable" etmek bu sayaci sifirliyor;
+  # bos commit atmaya gerek kalmiyor. Ayri job: actions:write yetkisi yalnizca
+  # burada, pip bagimliliklari calistiran bulten job'u salt-okur kaliyor.
+  keepalive:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    permissions:
+      actions: write
+    timeout-minutes: 5
+    steps:
+      - name: Zamanlanmis isi aktif tut
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/daily-bulletin.yml/enable"
